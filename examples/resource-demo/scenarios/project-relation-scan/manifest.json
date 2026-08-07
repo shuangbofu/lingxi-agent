@@ -1,0 +1,33 @@
+{
+  "code": "project-relation-scan",
+  "version": "0.0.1",
+  "name": "项目关系扫描",
+  "description": "扫描项目间真实引用、调用或依赖关系并沉淀知识。",
+  "scenario": "PROJECT_RELATION_SCAN",
+  "icon": "icon.svg",
+  "color": "#0d9488",
+  "promptFile": "prompt.md",
+  "enabled": true,
+  "userVisible": false,
+  "resultFormat": "markdown-sections",
+  "presentations": [
+    "mermaid",
+    "evidence"
+  ],
+  "queuePriority": 100,
+  "capabilities": [
+    "project-hub",
+    "code-repository"
+  ],
+  "parameters": [
+    {
+      "key": "userInput",
+      "name": "扫描范围",
+      "type": "textarea",
+      "required": false,
+      "description": "关系扫描的补充约束",
+      "sortOrder": 10,
+      "visible": true
+    }
+  ]
+}

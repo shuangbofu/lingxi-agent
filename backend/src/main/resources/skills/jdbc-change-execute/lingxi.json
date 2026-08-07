@@ -1,0 +1,47 @@
+{
+  "$schema": "https://raw.githubusercontent.com/shuangbofu/lingxi-agent/main/docs/schemas/lingxi-capability.schema.json",
+  "schemaVersion": 1,
+  "version": "1.0.0",
+  "presentation": {
+    "displayName": "数据变更",
+    "icon": "assets/icon.svg"
+  },
+  "enabledByDefault": true,
+  "entrypoint": "scripts/jdbc_change_execute.py",
+  "taskParameters": [
+    {
+      "key": "url",
+      "name": "JDBC URL",
+      "type": "text",
+      "required": true,
+      "description": "完整 JDBC 连接地址，例如 jdbc:mysql://host:3306/db、jdbc:postgresql://host:5432/db 或 jdbc:sqlite:/path/db.sqlite。"
+    },
+    {
+      "key": "username",
+      "name": "用户名",
+      "type": "text",
+      "required": false,
+      "description": "具备本次受控变更权限的数据库账号。"
+    },
+    {
+      "key": "password",
+      "name": "密码",
+      "type": "password",
+      "required": false,
+      "description": "数据库账号密码。"
+    },
+    {
+      "key": "schemaHint",
+      "name": "库表范围说明",
+      "type": "textarea",
+      "required": false,
+      "description": "说明允许变更的 schema、表名前缀、核心表或需要避开的表。"
+    }
+  ],
+  "configurationParameters": [],
+  "commands": [
+    {"command": "jdbc-change preflight", "displayName": "预检数据变更", "icon": "SHIELD_CHECK"},
+    {"command": "jdbc-change execute", "displayName": "执行数据变更", "icon": "PLAY_CIRCLE"},
+    {"command": "jdbc-change rollback", "displayName": "回滚数据变更", "icon": "ARROW_COUNTER_CLOCKWISE"}
+  ]
+}

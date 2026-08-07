@@ -1,0 +1,88 @@
+{
+  "code": "sql-query",
+  "version": "0.0.1",
+  "name": "数据查询",
+  "description": "把业务问题转成安全只读查询，返回查询口径和结果。",
+  "slogan": "你想查询什么数据？",
+  "scenario": "SQL_QUERY",
+  "icon": "icon.svg",
+  "color": "#16a34a",
+  "promptFile": "prompt.md",
+  "enabled": true,
+  "resultFormat": "markdown-sections",
+  "presentations": [
+    "evidence",
+    "metrics"
+  ],
+  "queuePriority": 100,
+  "capabilities": [
+    "project-hub",
+    "code-repository",
+    "jdbc-readonly-query",
+    "wiki-ingest",
+    "ask-question"
+  ],
+  "capabilityConditions": {
+    "wiki-ingest": {
+      "parameter": "referenceKnowledge",
+      "values": [
+        "true"
+      ]
+    }
+  },
+  "parameters": [
+    {
+      "key": "askUserLevel",
+      "name": "询问等级",
+      "type": "select",
+      "required": false,
+      "description": "控制查询过程中是否允许向用户补充提问；默认关闭，优先通过已有上下文和可用证据自行确认口径。",
+      "defaultValue": "OFF",
+      "sortOrder": 10,
+      "visible": true,
+      "options": [
+        {
+          "label": "关闭",
+          "value": "OFF"
+        },
+        {
+          "label": "必要时",
+          "value": "NECESSARY"
+        },
+        {
+          "label": "关键确认",
+          "value": "CONFIRM"
+        }
+      ]
+    },
+    {
+      "key": "referenceKnowledge",
+      "name": "参考文档",
+      "type": "switch",
+      "required": false,
+      "description": "开启后可检索并参考当前业务项目的文档证据；关闭时不挂载文档证据读取能力。",
+      "defaultValue": "false",
+      "sortOrder": 15,
+      "visible": true
+    },
+    {
+      "key": "userInput",
+      "name": "业务问题",
+      "type": "textarea",
+      "required": true,
+      "description": "输入想查询的数据事实或业务问题",
+      "sortOrder": 20,
+      "visible": true
+    },
+    {
+      "key": "showCodeEvidence",
+      "name": "展示技术依据",
+      "type": "switch",
+      "required": false,
+      "description": "开启后展示代码、类名、字段等技术细节；关闭时仍保留依据，但用业务方能理解的方式表达。",
+      "defaultValue": "false",
+      "visible": true,
+      "sortOrder": 20
+    }
+  ]
+}

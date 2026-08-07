@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, "refactor/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      - name: Test backend
+        run: mvn -B -ntp -pl backend -am test
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+      - name: Install dependencies
+        working-directory: frontend
+        run: yarn install --frozen-lockfile
+      - name: Type-check and build
+        working-directory: frontend
+        run: yarn build
+
+  definitions:
+    name: Definitions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate manifests and references
+        run: python scripts/validate_definitions.py
+      - name: Compile Python sources
+        run: python -m compileall -q backend/src/main/resources/skills examples/resource-demo/skills
+      - name: Run capability tests
+        run: |
+          python backend/src/main/resources/skills/code-repository/scripts/test_code_repository.py
+          python backend/src/main/resources/skills/jdbc-change-execute/scripts/test_jdbc_change_execute.py
+          python backend/src/main/resources/skills/jdbc-readonly-query/scripts/test_jdbc_readonly_query.py
+          python examples/resource-demo/skills/project-hub/scripts/test_project_hub.py
+          python examples/resource-demo/skills/wiki-ingest/scripts/test_wiki_tools.py

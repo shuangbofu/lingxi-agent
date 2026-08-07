@@ -1,0 +1,49 @@
+[
+  {
+    "value": "OPENAI",
+    "label": "OpenAI",
+    "icon": "/provider-icons/openai.png",
+    "darkIcon": "/provider-icons/openai-dark.png",
+    "defaultBaseUrl": "https://api.openai.com/v1",
+    "defaultProtocol": "RESPONSES",
+    "supportedProtocols": ["RESPONSES", "CHAT_COMPLETIONS"],
+    "imageInputSupported": true,
+    "reasoningEffortOptions": [
+      {"label": "低", "value": "low"},
+      {"label": "中", "value": "medium"},
+      {"label": "高", "value": "high"},
+      {"label": "极高", "value": "xhigh"}
+    ]
+  },
+  {
+    "value": "DEEPSEEK",
+    "label": "DeepSeek",
+    "icon": "/provider-icons/deepseek.png",
+    "defaultBaseUrl": "https://api.deepseek.com",
+    "defaultProtocol": "RESPONSES",
+    "supportedProtocols": ["RESPONSES", "CHAT_COMPLETIONS"],
+    "imageInputSupported": false,
+    "thinkingFieldName": "reasoning_content",
+    "reasoningEffortOptions": [
+      {"label": "关闭", "value": "none", "disablesReasoning": true},
+      {"label": "高", "value": "high"},
+      {"label": "最高", "value": "max"}
+    ]
+  },
+  {
+    "value": "KIMI",
+    "label": "Kimi",
+    "icon": "/provider-icons/kimi.png",
+    "darkIcon": "/provider-icons/kimi-dark.png",
+    "defaultBaseUrl": "https://api.moonshot.cn/v1",
+    "defaultProtocol": "CHAT_COMPLETIONS",
+    "supportedProtocols": ["CHAT_COMPLETIONS"],
+    "imageInputSupported": true,
+    "thinkingFieldName": "reasoning_content",
+    "reasoningEffortOptions": [
+      {"label": "低", "value": "low"},
+      {"label": "高", "value": "high"},
+      {"label": "最高", "value": "max"}
+    ]
+  }
+]

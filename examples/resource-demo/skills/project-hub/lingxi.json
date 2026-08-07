@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "version": "1.0.1",
+  "presentation": {
+    "displayName": "项目管理上下文",
+    "icon": "assets/icon.svg"
+  },
+  "enabledByDefault": true,
+  "entrypoint": "scripts/project_hub.py",
+  "taskParameters": [
+    {
+      "key": "projectId",
+      "name": "应用",
+      "type": "text",
+      "required": false,
+      "description": "本次任务已确认的项目 ID；通常由用户交互选择或分析前提提供。",
+      "visible": false
+    },
+    {
+      "key": "environmentCode",
+      "name": "环境",
+      "type": "text",
+      "required": false,
+      "description": "本次任务已确认的环境口径；通常由用户交互选择或分析前提提供。",
+      "visible": false
+    }
+  ],
+  "configurationParameters": [
+    {
+      "key": "baseUrl",
+      "name": "服务地址",
+      "type": "text",
+      "required": true,
+      "description": "项目管理服务地址，例如 https://project-service.example.test。"
+    },
+    {
+      "key": "token",
+      "name": "访问令牌",
+      "type": "password",
+      "required": true,
+      "description": "项目管理服务提供的访问令牌。"
+    }
+  ],
+  "commands": [
+    {"command": "project-hub project-list", "displayName": "查询项目列表", "icon": "LIST_BULLETS"},
+    {"command": "project-hub environment-list", "displayName": "查询环境列表", "icon": "LIST_BULLETS"},
+    {"command": "project-hub project-info", "displayName": "读取项目信息", "icon": "FILE_TEXT"},
+    {"command": "project-hub project-context", "displayName": "读取项目上下文", "icon": "BOOK_OPEN"},
+    {"command": "project-hub repository-list", "displayName": "查询仓库列表", "icon": "FOLDER"},
+    {"command": "project-hub repository-info", "displayName": "读取仓库详情", "icon": "GIT_BRANCH"},
+    {"command": "project-hub relation-list", "displayName": "查询项目关系", "icon": "GRAPH"},
+    {"command": "project-hub config-list", "displayName": "查询资源配置列表", "icon": "DATABASE"},
+    {"command": "project-hub config-info", "displayName": "读取资源配置详情", "icon": "DATABASE"}
+  ]
+}

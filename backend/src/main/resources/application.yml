@@ -1,0 +1,61 @@
+﻿server:
+  port: 8080
+  servlet:
+    session:
+      timeout: ${LINGXI_SESSION_TIMEOUT:24h}
+      cookie:
+        name: ${LINGXI_SESSION_COOKIE_NAME:LINGXI_SESSION}
+        http-only: true
+        same-site: lax
+        secure: ${LINGXI_SESSION_COOKIE_SECURE:false}
+
+spring:
+  application:
+    name: lingxi
+  web:
+    resources:
+      chain:
+        enabled: true
+        compressed: true
+  session:
+    store-type: jdbc
+    timeout: ${LINGXI_SESSION_TIMEOUT:24h}
+    jdbc:
+      initialize-schema: always
+  servlet:
+    multipart:
+      max-file-size: ${LINGXI_MAX_FILE_SIZE:50MB}
+      max-request-size: ${LINGXI_MAX_REQUEST_SIZE:51MB}
+  datasource:
+    url: jdbc:h2:file:./data/codex-workbench;MODE=MySQL;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/init.sql
+  h2:
+    console:
+      enabled: ${LINGXI_H2_CONSOLE_ENABLED:false}
+      path: /h2-console
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+
+lingxi:
+  capability-runtime:
+    base-url: ${LINGXI_CAPABILITY_RUNTIME_BASE_URL:http://127.0.0.1:${server.port}}
+    python-executable: ${LINGXI_CAPABILITY_PYTHON_EXECUTABLE:python3}
+    package-cache-dir: ${LINGXI_CAPABILITY_PACKAGE_CACHE_DIR:./data/capability-python-packages}
+    locale: ${LINGXI_CAPABILITY_RUNTIME_LOCALE:zh_CN.UTF-8}
+  definitions:
+    installed-skill-dir: ${LINGXI_INSTALLED_SKILL_DIR:./data/installed-skills}
+    installed-scenario-dir: ${LINGXI_INSTALLED_SCENARIO_DIR:./data/installed-scenarios}
+  user:
+    default-password: ${LINGXI_USER_DEFAULT_PASSWORD:}
+    avatar-dir: ${LINGXI_USER_AVATAR_DIR:./data/avatars}

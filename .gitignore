@@ -1,0 +1,79 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Local deployment configuration
+.deploybot/
+
+# Python
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Java / Maven
+**/target/
+*.class
+*.jar
+*.war
+*.ear
+
+# Node / Vite
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/tsconfig.tsbuildinfo
+examples/resource-demo/frontend/node_modules/
+examples/resource-demo/frontend/dist/
+examples/resource-demo/frontend/tsconfig.tsbuildinfo
+examples/resource-demo/data/
+examples/resource-demo/logs/
+examples/resource-demo/backend/data/
+examples/resource-demo/backend/logs/
+examples/resource-demo/skills/dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime data
+/data/
+/logs/
+/repositories/
+/target/
+/external-skills/
+backend/data/
+backend/logs/
+backend/repositories/
+reports/
+
+# Codex / workbench runtime
+**/.workbench-tools/
+.tools/
+**/.codex/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.log
+*.pid
+.cache/
+
+# Database files
+*.mv.db
+*.trace.db
+outputs/

@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "version": "1.0.0",
+  "presentation": {
+    "displayName": "文档证据读取",
+    "icon": "assets/icon.svg"
+  },
+  "enabledByDefault": true,
+  "entrypoint": "scripts/wiki_tools.py",
+  "taskParameters": [
+    {
+      "key": "projectCode",
+      "name": "业务项目编码",
+      "type": "text",
+      "required": true,
+      "description": "本次任务读取文档证据所属的项目编码，由项目上下文注入。",
+      "visible": false
+    }
+  ],
+  "configurationParameters": [
+    {
+      "key": "baseUrl",
+      "name": "服务地址",
+      "type": "text",
+      "required": true,
+      "description": "外部 Wiki 服务地址，例如 https://wiki-service.example.test。"
+    },
+    {
+      "key": "token",
+      "name": "访问令牌",
+      "type": "password",
+      "required": true,
+      "description": "外部 Wiki 服务提供的访问令牌。"
+    }
+  ],
+  "guides": [
+    {
+      "key": "document-reading",
+      "title": "文档证据读取",
+      "description": "检索项目文档正文、目录、版本和可选媒体证据。",
+      "file": "references/wiki_ingest.md"
+    }
+  ],
+  "commands": [
+    {"command": "wiki source-search", "displayName": "检索源证据", "icon": "MAGNIFYING_GLASS"},
+    {"command": "wiki source-search-batch", "displayName": "执行多词分组取证", "icon": "LIST_BULLETS"},
+    {"command": "wiki source-read", "displayName": "读取源正文", "icon": "FILE_TEXT"},
+    {"command": "wiki source-context", "displayName": "读取源命中上下文", "icon": "BOOK_OPEN"},
+    {"command": "wiki source-media", "displayName": "读取源图片证据", "icon": "IMAGE_SQUARE"},
+    {"command": "wiki source-image-reanalyze", "displayName": "核验源图片问题", "icon": "EYE"},
+    {"command": "wiki source-history", "displayName": "查询源快照历史", "icon": "HISTORY"},
+    {"command": "wiki source-changes", "displayName": "查询源文档改动时间线", "icon": "HISTORY"},
+    {"command": "wiki source-diff", "displayName": "对比源快照", "icon": "GIT_DIFF"},
+    {"command": "wiki source-read-raw", "displayName": "读取源原始块", "icon": "BRACKETS_CURLY"},
+    {"command": "wiki source-tree", "displayName": "读取源目录树", "icon": "TREE_STRUCTURE"},
+    {"command": "wiki source-list", "displayName": "查询源文档列表", "icon": "LIST_BULLETS"},
+    {"command": "wiki source-read-deep", "displayName": "深读源图片", "icon": "IMAGE_SQUARE"}
+  ]
+}

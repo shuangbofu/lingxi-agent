@@ -1,0 +1,78 @@
+{
+  "code": "code-analysis",
+  "version": "0.0.1",
+  "name": "代码分析",
+  "description": "基于真实代码讲透功能实现、调用关系、关键流程和影响范围。",
+  "slogan": "你想分析哪段代码实现？",
+  "scenario": "CODE_ANALYSIS",
+  "icon": "icon.svg",
+  "color": "#0891b2",
+  "promptFile": "prompt.md",
+  "enabled": true,
+  "resultFormat": "markdown-sections",
+  "presentations": [
+    "mermaid",
+    "evidence"
+  ],
+  "queuePriority": 100,
+  "capabilities": [
+    "project-hub",
+    "code-repository",
+    "jdbc-readonly-query",
+    "wiki-ingest",
+    "ask-question"
+  ],
+  "capabilityConditions": {
+    "wiki-ingest": {
+      "parameter": "referenceKnowledge",
+      "values": [
+        "true"
+      ]
+    }
+  },
+  "parameters": [
+    {
+      "key": "askUserLevel",
+      "name": "询问等级",
+      "type": "select",
+      "required": false,
+      "description": "控制分析过程中是否允许向用户补充提问；默认关闭，优先通过已有上下文和可用证据自行查证。",
+      "defaultValue": "OFF",
+      "sortOrder": 10,
+      "visible": true,
+      "options": [
+        {
+          "label": "关闭",
+          "value": "OFF"
+        },
+        {
+          "label": "必要时",
+          "value": "NECESSARY"
+        },
+        {
+          "label": "关键确认",
+          "value": "CONFIRM"
+        }
+      ]
+    },
+    {
+      "key": "referenceKnowledge",
+      "name": "参考文档",
+      "type": "switch",
+      "required": false,
+      "description": "开启后可检索并参考当前业务项目的文档证据；关闭时不挂载文档证据读取能力。",
+      "defaultValue": "false",
+      "sortOrder": 15,
+      "visible": true
+    },
+    {
+      "key": "userInput",
+      "name": "分析目标",
+      "type": "textarea",
+      "required": true,
+      "description": "输入想了解的功能实现、调用关系或影响范围",
+      "sortOrder": 20,
+      "visible": true
+    }
+  ]
+}

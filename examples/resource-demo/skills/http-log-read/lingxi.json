@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "version": "1.0.0",
+  "presentation": {
+    "displayName": "HTTP 日志读取",
+    "icon": "assets/icon.svg"
+  },
+  "enabledByDefault": true,
+  "entrypoint": "scripts/http_log_read.py",
+  "taskParameters": [
+    {
+      "key": "baseUrl",
+      "name": "日志接口地址",
+      "type": "text",
+      "required": true,
+      "description": "只读日志接口地址，例如 http://<host>:<port>/files/logs。"
+    },
+    {
+      "key": "root",
+      "name": "日志根目录",
+      "type": "text",
+      "required": true,
+      "description": "日志服务允许读取的根路径，例如 /demo/logs/sample/test。"
+    },
+    {
+      "key": "path",
+      "name": "相对目录",
+      "type": "text",
+      "required": false,
+      "description": "日志根目录下的相对目录；根目录可留空。"
+    },
+    {
+      "key": "filePattern",
+      "name": "文件匹配",
+      "type": "text",
+      "required": false,
+      "description": "文件名匹配规则，例如 *.log、error*.log。",
+      "defaultValue": "*.log"
+    },
+    {
+      "key": "encoding",
+      "name": "编码",
+      "type": "text",
+      "required": false,
+      "description": "日志文本编码，默认 UTF-8。",
+      "defaultValue": "UTF-8"
+    },
+    {
+      "key": "token",
+      "name": "访问令牌",
+      "type": "password",
+      "required": false,
+      "description": "临时日志接口设置访问令牌时填写。"
+    },
+    {
+      "key": "maxBytes",
+      "name": "单次读取字节数",
+      "type": "text",
+      "required": false,
+      "description": "tail/search 单文件默认读取字节数，默认 524288，服务端最大 20971520。",
+      "defaultValue": "524288"
+    },
+    {
+      "key": "readHint",
+      "name": "读取提示",
+      "type": "textarea",
+      "required": false,
+      "description": "说明常用 traceId 字段、日志滚动规则、关键文件和排查顺序。"
+    }
+  ],
+  "configurationParameters": [],
+  "commands": [
+    {"command": "http-log health", "displayName": "检查日志接口", "icon": "SHIELD_CHECK"},
+    {"command": "http-log list", "displayName": "查询日志文件", "icon": "LIST_BULLETS"},
+    {"command": "http-log tail", "displayName": "读取日志尾部", "icon": "FILE_TEXT"},
+    {"command": "http-log search", "displayName": "检索日志", "icon": "MAGNIFYING_GLASS"}
+  ]
+}

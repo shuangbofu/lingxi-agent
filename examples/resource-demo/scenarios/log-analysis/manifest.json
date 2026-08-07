@@ -1,0 +1,117 @@
+{
+  "code": "log-analysis",
+  "version": "0.0.1",
+  "name": "故障分析",
+  "description": "结合异常现象、日志、数据和代码证据定位故障原因。",
+  "slogan": "你遇到了什么故障？",
+  "scenario": "LOG_ANALYSIS",
+  "icon": "icon.svg",
+  "color": "#dc2626",
+  "promptFile": "prompt.md",
+  "enabled": true,
+  "resultFormat": "markdown-sections",
+  "presentations": [
+    "timeline",
+    "evidence",
+    "metrics"
+  ],
+  "queuePriority": 100,
+  "capabilities": [
+    "project-hub",
+    "code-repository",
+    "http-log-read",
+    "jdbc-readonly-query",
+    "wiki-ingest",
+    "ask-question"
+  ],
+  "capabilityConditions": {
+    "wiki-ingest": {
+      "parameter": "referenceKnowledge",
+      "values": [
+        "true"
+      ]
+    }
+  },
+  "parameters": [
+    {
+      "key": "referenceKnowledge",
+      "name": "参考文档",
+      "type": "switch",
+      "required": false,
+      "description": "开启后可检索并参考当前业务项目的文档证据；关闭时不挂载文档证据读取能力。",
+      "defaultValue": "false",
+      "sortOrder": 15,
+      "visible": true
+    },
+    {
+      "key": "showCodeEvidence",
+      "name": "展示技术依据",
+      "type": "switch",
+      "required": false,
+      "description": "开启后展示代码、类名、字段等技术细节；关闭时仍保留依据，但用业务方能理解的方式表达。",
+      "defaultValue": "false",
+      "visible": true,
+      "sortOrder": 20
+    },
+    {
+      "key": "askUserLevel",
+      "name": "询问等级",
+      "type": "select",
+      "required": false,
+      "description": "控制排查过程中是否允许向用户补充提问；默认关闭，优先通过已有上下文和可用证据自行查证。",
+      "defaultValue": "OFF",
+      "sortOrder": 10,
+      "visible": true,
+      "options": [
+        {
+          "label": "关闭",
+          "value": "OFF"
+        },
+        {
+          "label": "必要时",
+          "value": "NECESSARY"
+        },
+        {
+          "label": "关键确认",
+          "value": "CONFIRM"
+        }
+      ]
+    },
+    {
+      "key": "logTraceId",
+      "name": "TraceId",
+      "type": "text",
+      "required": false,
+      "description": "日志链路 ID",
+      "sortOrder": 20,
+      "visible": true
+    },
+    {
+      "key": "logStartTime",
+      "name": "开始时间",
+      "type": "datetime",
+      "required": false,
+      "description": "日志时间窗口开始值",
+      "sortOrder": 30,
+      "visible": true
+    },
+    {
+      "key": "logEndTime",
+      "name": "结束时间",
+      "type": "datetime",
+      "required": false,
+      "description": "日志时间窗口结束值",
+      "sortOrder": 40,
+      "visible": true
+    },
+    {
+      "key": "userInput",
+      "name": "故障现象",
+      "type": "textarea",
+      "required": true,
+      "description": "描述异常现象、报错信息或需要排查的问题",
+      "sortOrder": 50,
+      "visible": true
+    }
+  ]
+}

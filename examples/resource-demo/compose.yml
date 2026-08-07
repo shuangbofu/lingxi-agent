@@ -1,0 +1,17 @@
+services:
+  resource-demo:
+    build:
+      context: ..
+      dockerfile: resource-demo/Dockerfile
+    image: lingxi-resource-demo:local
+    ports:
+      - "8091:8091"
+    environment:
+      DEMO_ACCESS_TOKEN: ${DEMO_ACCESS_TOKEN:-lingxi-demo-token}
+      DEMO_PUBLIC_BASE_URL: ${DEMO_PUBLIC_BASE_URL:-http://localhost:8091}
+      DEMO_DATA_PATH: /app/data/resource-demo
+      DEMO_LOG_PATH: /app/logs
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    restart: unless-stopped

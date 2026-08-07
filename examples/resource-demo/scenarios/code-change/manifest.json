@@ -1,0 +1,79 @@
+{
+  "code": "code-change",
+  "version": "0.0.1",
+  "name": "代码变更",
+  "description": "根据明确需求在指定分支上创建临时分支，完成小范围代码修改并提交，输出影响面和验证建议。",
+  "slogan": "你想改哪一处代码？",
+  "scenario": "CODE_CHANGE",
+  "icon": "icon.svg",
+  "color": "#2f6fd6",
+  "promptFile": "prompt.md",
+  "enabled": true,
+  "resultFormat": "markdown-sections",
+  "presentations": [
+    "steps",
+    "evidence",
+    "mermaid"
+  ],
+  "queuePriority": 100,
+  "capabilities": [
+    "project-hub",
+    "code-repository",
+    "jdbc-readonly-query",
+    "wiki-ingest",
+    "ask-question"
+  ],
+  "capabilityConditions": {
+    "wiki-ingest": {
+      "parameter": "referenceKnowledge",
+      "values": [
+        "true"
+      ]
+    }
+  },
+  "parameters": [
+    {
+      "key": "askUserLevel",
+      "name": "询问等级",
+      "type": "select",
+      "required": false,
+      "description": "控制改动前是否允许确认项目、仓库、分支、改动范围和风险；默认关键确认。",
+      "defaultValue": "CONFIRM",
+      "sortOrder": 10,
+      "visible": true,
+      "options": [
+        {
+          "label": "关闭",
+          "value": "OFF"
+        },
+        {
+          "label": "必要时",
+          "value": "NECESSARY"
+        },
+        {
+          "label": "关键确认",
+          "value": "CONFIRM"
+        }
+      ]
+    },
+    {
+      "key": "referenceKnowledge",
+      "name": "参考文档",
+      "type": "switch",
+      "required": false,
+      "description": "开启后可检索并参考当前业务项目的文档证据；关闭时不挂载文档证据读取能力。",
+      "defaultValue": "false",
+      "sortOrder": 15,
+      "visible": true
+    },
+    {
+      "key": "userInput",
+      "name": "变更需求",
+      "type": "textarea",
+      "required": true,
+      "description": "输入期望修改的业务行为、问题修复或小范围代码调整目标",
+      "sortOrder": 20,
+      "visible": true
+    }
+  ]
+}

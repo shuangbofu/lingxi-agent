@@ -1,0 +1,87 @@
+{
+  "code": "test-case-generation",
+  "version": "0.0.1",
+  "name": "测试用例",
+  "description": "选择多个项目和分支，结合跨项目变更生成标准测试用例报告。",
+  "slogan": "你想生成什么测试用例？",
+  "scenario": "TEST_CASE_GENERATION",
+  "icon": "icon.svg",
+  "color": "#7c3aed",
+  "promptFile": "prompt.md",
+  "enabled": true,
+  "resultFormat": "test-case-report",
+  "resultRenderer": "document",
+  "presentations": [
+    "steps"
+  ],
+  "queuePriority": 100,
+  "capabilities": [
+    "project-hub",
+    "code-repository",
+    "jdbc-readonly-query",
+    "wiki-ingest",
+    "ask-question"
+  ],
+  "capabilityConditions": {
+    "wiki-ingest": {
+      "parameter": "referenceKnowledge",
+      "values": [
+        "true"
+      ]
+    }
+  },
+  "parameters": [
+    {
+      "key": "caseTitle",
+      "name": "报告名称",
+      "type": "text",
+      "required": false,
+      "description": "可选；不填写时根据本次测试目标生成报告名称",
+      "sortOrder": 10,
+      "visible": true
+    },
+    {
+      "key": "referenceKnowledge",
+      "name": "参考文档",
+      "type": "switch",
+      "required": false,
+      "description": "开启后可检索并参考当前业务项目的文档证据；关闭时不挂载文档证据读取能力。",
+      "defaultValue": "false",
+      "sortOrder": 15,
+      "visible": true
+    },
+    {
+      "key": "askUserLevel",
+      "name": "询问等级",
+      "type": "select",
+      "required": false,
+      "description": "控制生成报告过程中是否允许向用户补充提问；默认关闭，优先通过已有上下文、真实 Git 分支候选和可用证据自行确认。",
+      "defaultValue": "OFF",
+      "sortOrder": 20,
+      "visible": true,
+      "options": [
+        {
+          "label": "关闭",
+          "value": "OFF"
+        },
+        {
+          "label": "必要时",
+          "value": "NECESSARY"
+        },
+        {
+          "label": "关键确认",
+          "value": "CONFIRM"
+        }
+      ]
+    },
+    {
+      "key": "userInput",
+      "name": "用例说明",
+      "type": "textarea",
+      "required": false,
+      "description": "补充业务背景、测试关注点、风险点或测试范围",
+      "sortOrder": 30,
+      "visible": true
+    }
+  ]
+}

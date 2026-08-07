@@ -1,0 +1,39 @@
+package top.fusb.lingxi.enums;
+
+import lombok.Getter;
+
+@Getter
+public enum ErrorSubCode {
+
+    VALIDATION_FAILED("VALIDATION_FAILED", "参数校验失败"),
+    UNAUTHORIZED("UNAUTHORIZED", "请先登录"),
+    FORBIDDEN("FORBIDDEN", "没有操作权限"),
+    BAD_CREDENTIALS("BAD_CREDENTIALS", "账号或密码错误"),
+    USER_DISABLED("USER_DISABLED", "账号已停用"),
+    TASK_NOT_FOUND("TASK_NOT_FOUND", "任务不存在"),
+    TASK_NOT_RUNNING("TASK_NOT_RUNNING", "任务未运行"),
+    TASK_ATTACHMENT_INVALID("TASK_ATTACHMENT_INVALID", "任务附件无效"),
+    TASK_ATTACHMENT_NOT_FOUND("TASK_ATTACHMENT_NOT_FOUND", "任务附件不存在"),
+    USER_USAGE_LIMIT_EXCEEDED("USER_USAGE_LIMIT_EXCEEDED", "本月 Token 用量已达到上限"),
+    RUNTIME_EXEC_FAILED("RUNTIME_EXEC_FAILED", "运行时执行失败"),
+    RUNTIME_UNAVAILABLE("RUNTIME_UNAVAILABLE", "执行模式不可用"),
+    RUNTIME_MAINTENANCE_NOT_SUPPORTED("RUNTIME_MAINTENANCE_NOT_SUPPORTED", "当前运行时不支持安装维护"),
+    RUNTIME_MAINTENANCE_FAILED("RUNTIME_MAINTENANCE_FAILED", "运行时安装维护失败"),
+    DATA_LOAD_FAILED("DATA_LOAD_FAILED", "数据加载失败"),
+    SCENARIO_CODE_EXISTS("SCENARIO_CODE_EXISTS", "场景编码已经存在"),
+    SCENARIO_PACKAGE_INVALID("SCENARIO_PACKAGE_INVALID", "场景安装包无效"),
+    SCENARIO_PACKAGE_EXISTS("SCENARIO_PACKAGE_EXISTS", "场景已经存在"),
+    SCENARIO_PACKAGE_STAGING_NOT_FOUND("SCENARIO_PACKAGE_STAGING_NOT_FOUND", "场景安装预览已失效"),
+    CAPABILITY_PACKAGE_INVALID("CAPABILITY_PACKAGE_INVALID", "能力安装包无效"),
+    CAPABILITY_PACKAGE_EXISTS("CAPABILITY_PACKAGE_EXISTS", "能力已经存在"),
+    CAPABILITY_PACKAGE_STAGING_NOT_FOUND("CAPABILITY_PACKAGE_STAGING_NOT_FOUND", "能力安装预览已失效"),
+    UNKNOWN_ERROR("UNKNOWN_ERROR", "未知异常");
+
+    private final String subCode;
+    private final String description;
+
+    ErrorSubCode(String subCode, String description) {
+        this.subCode = subCode;
+        this.description = description;
+    }
+}

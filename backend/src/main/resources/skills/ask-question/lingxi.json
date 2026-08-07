@@ -1,0 +1,21 @@
+{
+  "$schema": "https://raw.githubusercontent.com/shuangbofu/lingxi-agent/main/docs/schemas/lingxi-capability.schema.json",
+  "schemaVersion": 1,
+  "version": "1.0.0",
+  "presentation": {
+    "displayName": "用户追问"
+  },
+  "enabledByDefault": true,
+  "entrypoint": "scripts/ask_question.py",
+  "taskParameters": [],
+  "configurationParameters": [],
+  "commands": [
+    {"command": "ask-question ask", "displayName": "向用户追问", "icon": "QUESTION"},
+    {"command": "ask-question choose", "displayName": "请求用户选择", "icon": "LIST_BULLETS"},
+    {"command": "ask-question select", "displayName": "请求下拉选择", "icon": "LIST_BULLETS"},
+    {"command": "ask-question yes-no", "displayName": "请求用户确认", "icon": "CHECK_CIRCLE"},
+    {"command": "ask-question date", "displayName": "请求日期确认", "icon": "CALENDAR"},
+    {"command": "ask-question datetime", "displayName": "请求时间确认", "icon": "CLOCK"},
+    {"command": "ask-question form", "displayName": "请求多字段确认", "icon": "LIST_BULLETS"}
+  ]
+}

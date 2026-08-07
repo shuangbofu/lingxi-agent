@@ -1,0 +1,35 @@
+{
+  "code": "document-understanding",
+  "version": "0.0.1",
+  "name": "文档分析",
+  "description": "检索源正文、图片和版本，分析历史逻辑、责任来源与具体变化。",
+  "slogan": "你想从历史文档中确认什么？",
+  "scenario": "DOCUMENT_UNDERSTANDING",
+  "icon": "icon.svg",
+  "color": "#db2777",
+  "promptFile": "prompt.md",
+  "enabled": true,
+  "resultFormat": "markdown-sections",
+  "presentations": [
+    "evidence",
+    "mermaid",
+    "links"
+  ],
+  "queuePriority": 100,
+  "capabilities": [
+    "project-hub",
+    "wiki-ingest",
+    "ask-question"
+  ],
+  "parameters": [
+    {
+      "key": "userInput",
+      "name": "分析要求",
+      "type": "textarea",
+      "required": true,
+      "description": "说明要核实的历史逻辑、文档范围、版本变化或页面设计问题",
+      "sortOrder": 10,
+      "visible": true
+    }
+  ]
+}

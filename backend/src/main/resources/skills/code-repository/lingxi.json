@@ -1,0 +1,72 @@
+{
+  "$schema": "https://raw.githubusercontent.com/shuangbofu/lingxi-agent/main/docs/schemas/lingxi-capability.schema.json",
+  "schemaVersion": 1,
+  "version": "1.0.0",
+  "presentation": {
+    "displayName": "代码仓库"
+  },
+  "enabledByDefault": true,
+  "entrypoint": "scripts/code_repository.py",
+  "taskParameters": [
+    {
+      "key": "gitKeyDirectory",
+      "name": "Git Key 目录",
+      "type": "text",
+      "required": false,
+      "description": "Lingxi 执行服务器上的 Git SSH 目录；目录需包含标准 OpenSSH config，由 config 为不同 Git 地址选择私钥。",
+      "visible": false
+    },
+    {
+      "key": "repositoryCode",
+      "name": "仓库",
+      "type": "text",
+      "required": false,
+      "description": "本次任务已确认的仓库编码；通常由用户交互选择或分析前提提供。",
+      "visible": false
+    },
+    {
+      "key": "branch",
+      "name": "分析分支",
+      "type": "branch",
+      "required": false,
+      "description": "本次任务读取代码时使用的分支；通常由用户交互选择或分析前提提供。",
+      "visible": false
+    },
+    {
+      "key": "baseBranch",
+      "name": "基准分支",
+      "type": "branch",
+      "required": false,
+      "description": "分支对比或测试报告使用的基准分支。",
+      "visible": false
+    },
+    {
+      "key": "targetBranch",
+      "name": "目标分支",
+      "type": "branch",
+      "required": false,
+      "description": "分支对比或测试报告使用的目标分支。",
+      "visible": false
+    }
+  ],
+  "configurationParameters": [],
+  "commands": [
+    {"command": "code-repo list", "displayName": "查询仓库列表", "icon": "FOLDER", "executionMode": "READ_ONLY"},
+    {
+      "command": "code-repo prepare",
+      "displayName": "准备仓库",
+      "icon": "GIT_BRANCH",
+      "outputs": [
+        {
+          "type": "file-root",
+          "pathField": "worktreePath",
+          "features": ["file-access", "code-index"]
+        }
+      ]
+    },
+    {"command": "code-repo diff", "displayName": "查询分支差异", "icon": "GIT_DIFF", "executionMode": "READ_ONLY"},
+    {"command": "code-repo history", "displayName": "查询提交历史", "icon": "HISTORY", "executionMode": "READ_ONLY"},
+    {"command": "code-repo prepare-change", "displayName": "准备变更分支", "icon": "GIT_BRANCH"},
+    {"command": "code-repo commit", "displayName": "提交代码变更", "icon": "GIT_COMMIT"}
+  ]
+}

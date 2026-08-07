@@ -1,0 +1,10 @@
+[
+  {
+    "source": "business-question",
+    "targets": ["code-change"]
+  },
+  {
+    "source": "log-analysis",
+    "targets": ["code-change"]
+  }
+]

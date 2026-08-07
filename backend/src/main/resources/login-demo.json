@@ -1,0 +1,50 @@
+{
+  "question": "支付回调持续超时，部分订单停留在“待支付”，请帮忙排查原因。",
+  "inputPlaceholder": "描述线上故障现象...",
+  "scenarioCode": "log-analysis",
+  "scenarioName": "故障分析",
+  "premiseName": "生产",
+  "runtime": {
+    "name": "Codex",
+    "iconUrl": "/runtime-icons/codex-mark.png"
+  },
+  "model": {
+    "name": "GPT-5",
+    "iconUrl": "/provider-icons/openai.png",
+    "darkIconUrl": "/provider-icons/openai-dark.png"
+  },
+  "thinkingTitle": "正在思考",
+  "agentMessage": "我先确认故障范围，再检查近期发布、回调日志和数据库状态。",
+  "steps": [
+    {
+      "label": "查看项目文件",
+      "icon": "FOLDER"
+    },
+    {
+      "label": "搜索代码",
+      "icon": "MAGNIFYING_GLASS"
+    },
+    {
+      "label": "查看数据",
+      "icon": "DATABASE"
+    },
+    {
+      "label": "日志检索",
+      "icon": "FILE_MAGNIFYING_GLASS"
+    }
+  ],
+  "processedLabel": "已处理 11 秒",
+  "emptyProcessText": "暂无思考过程",
+  "result": "排查发现，订单服务在校验支付状态时读取了从库。主从延迟导致部分已支付订单仍被识别为“待支付”，回调因此持续重试。建议将该校验切回主库，并补偿更新受影响订单。",
+  "timings": {
+    "typingIntervalMs": 160,
+    "submitDelayMs": 600,
+    "launchDurationMs": 560,
+    "thinkingDelayMs": 1300,
+    "messageDelayMs": 1000,
+    "stepDelayMs": 1400,
+    "resultDelayMs": 500,
+    "completedDelayMs": 5200,
+    "resetDelayMs": 700
+  }
+}

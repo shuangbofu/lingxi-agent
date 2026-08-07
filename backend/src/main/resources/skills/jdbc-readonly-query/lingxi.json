@@ -1,0 +1,45 @@
+{
+  "$schema": "https://raw.githubusercontent.com/shuangbofu/lingxi-agent/main/docs/schemas/lingxi-capability.schema.json",
+  "schemaVersion": 1,
+  "version": "1.0.0",
+  "presentation": {
+    "displayName": "数据查询",
+    "icon": "assets/icon.svg"
+  },
+  "enabledByDefault": true,
+  "entrypoint": "scripts/jdbc_readonly_query.py",
+  "taskParameters": [
+    {
+      "key": "url",
+      "name": "JDBC URL",
+      "type": "text",
+      "required": true,
+      "description": "完整 JDBC 连接地址，例如 jdbc:mysql://host:3306/db、jdbc:postgresql://host:5432/db 或 jdbc:sqlite:/path/db.sqlite。"
+    },
+    {
+      "key": "username",
+      "name": "用户名",
+      "type": "text",
+      "required": false,
+      "description": "只读数据库账号。"
+    },
+    {
+      "key": "password",
+      "name": "密码",
+      "type": "password",
+      "required": false,
+      "description": "只读数据库账号密码。"
+    },
+    {
+      "key": "schemaHint",
+      "name": "库表范围说明",
+      "type": "textarea",
+      "required": false,
+      "description": "说明允许查询的 schema、表名前缀、核心表或需要避开的表。"
+    }
+  ],
+  "configurationParameters": [],
+  "commands": [
+    {"command": "jdbc query", "displayName": "查询数据", "icon": "DATABASE", "executionMode": "READ_ONLY"}
+  ]
+}

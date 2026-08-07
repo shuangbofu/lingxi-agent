@@ -1,0 +1,94 @@
+{
+  "code": "business-question",
+  "version": "0.0.1",
+  "name": "业务问答",
+  "description": "直接询问业务规则、状态流转或字段含义，返回清楚可信的业务口径。",
+  "slogan": "你想确认什么业务问题？",
+  "scenario": "BUSINESS_QUESTION",
+  "icon": "icon.svg",
+  "color": "#0f766e",
+  "promptFile": "prompt.md",
+  "enabled": true,
+  "resultFormat": "markdown-sections",
+  "presentations": [
+    "evidence"
+  ],
+  "queuePriority": 100,
+  "capabilities": [
+    "project-hub",
+    "code-repository",
+    "jdbc-readonly-query",
+    "wiki-ingest",
+    "ask-question"
+  ],
+  "capabilityConditions": {
+    "ask-question": {
+      "parameter": "askUserLevel",
+      "values": [
+        "NECESSARY",
+        "CONFIRM"
+      ]
+    },
+    "wiki-ingest": {
+      "parameter": "referenceKnowledge",
+      "values": [
+        "true"
+      ]
+    }
+  },
+  "parameters": [
+    {
+      "key": "askUserLevel",
+      "name": "询问等级",
+      "type": "select",
+      "required": false,
+      "description": "控制分析过程中向用户补充提问的时机；默认仅在缺失信息会阻止继续时提问。",
+      "defaultValue": "NECESSARY",
+      "sortOrder": 10,
+      "visible": true,
+      "options": [
+        {
+          "label": "关闭",
+          "value": "OFF"
+        },
+        {
+          "label": "必要时",
+          "value": "NECESSARY"
+        },
+        {
+          "label": "关键确认",
+          "value": "CONFIRM"
+        }
+      ]
+    },
+    {
+      "key": "referenceKnowledge",
+      "name": "参考文档",
+      "type": "switch",
+      "required": false,
+      "description": "开启后可检索并参考当前业务项目的文档证据；关闭时不挂载文档证据读取能力。",
+      "defaultValue": "false",
+      "sortOrder": 15,
+      "visible": true
+    },
+    {
+      "key": "showCodeEvidence",
+      "name": "展示技术依据",
+      "type": "switch",
+      "required": false,
+      "description": "开启后展示代码、类名、字段等技术细节；关闭时仍保留依据，但用业务方能理解的方式表达。",
+      "defaultValue": "false",
+      "sortOrder": 20,
+      "visible": true
+    },
+    {
+      "key": "userInput",
+      "name": "业务问题",
+      "type": "textarea",
+      "required": true,
+      "description": "输入想确认的业务规则、状态、字段或流程问题",
+      "sortOrder": 30,
+      "visible": true
+    }
+  ]
+}

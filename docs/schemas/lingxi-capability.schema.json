@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lingxi.local/schemas/lingxi-capability.schema.json",
+  "title": "Lingxi capability extension",
+  "description": "Lingxi 平台对标准 Agent Skill 的展示、参数注入和运行时扩展。Skill 身份、触发描述和工作流不在此重复定义。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "version",
+    "presentation",
+    "enabledByDefault",
+    "taskParameters",
+    "configurationParameters"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9A-Za-z][0-9A-Za-z._-]{0,39}$"
+    },
+    "presentation": {
+      "$ref": "#/$defs/presentation"
+    },
+    "enabledByDefault": {
+      "type": "boolean"
+    },
+    "entrypoint": {
+      "type": "string",
+      "pattern": "^scripts/(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+\\.py$",
+      "description": "Lingxi 当前支持的 Python 私有执行入口；可执行 Skill 每个包只声明一次，不进入模型上下文。"
+    },
+    "taskParameters": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/parameter"
+      }
+    },
+    "configurationParameters": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/parameter"
+      }
+    },
+    "guides": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/guide"
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/command"
+      }
+    }
+  },
+  "$defs": {
+    "presentation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["displayName"],
+      "properties": {
+        "displayName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "icon": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "parameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "name", "type", "required", "description"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "defaultValue": {
+          "type": "string"
+        },
+        "visible": {
+          "type": "boolean"
+        }
+      }
+    },
+    "guide": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "title", "description", "file"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "file": {
+          "type": "string",
+          "pattern": "^references/"
+        }
+      }
+    },
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command", "displayName"],
+      "properties": {
+        "command": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)* [a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "description": "可直接与“正在”“已”“失败”等状态组合的动作短语，例如“读取项目上下文”，不能填写“项目上下文”这类名词。"
+        },
+        "icon": {
+          "type": "string",
+          "enum": [
+            "WRENCH", "TERMINAL", "BOOK_OPEN", "FILE_TEXT", "FILE_PLUS",
+            "FILE_MAGNIFYING_GLASS", "MAGNIFYING_GLASS", "BRACKETS_CURLY", "CODE", "GRAPH",
+            "GIT_DIFF", "TREE_STRUCTURE", "PLUGS_CONNECTED", "QUESTION", "LIST_BULLETS",
+            "CHECK_CIRCLE", "CALENDAR", "CLOCK", "DATABASE", "FOLDER", "GIT_BRANCH",
+            "GIT_COMMIT", "SHIELD_CHECK", "ARROW_COUNTER_CLOCKWISE", "PLAY_CIRCLE",
+            "VIDEO_CAMERA", "IMAGE_SQUARE", "EYE", "HISTORY", "BROWSER", "HEAD_CIRCUIT",
+            "WARNING_CIRCLE", "X_CIRCLE"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "executionMode": {
+          "type": "string",
+          "enum": ["SERIAL", "READ_ONLY"],
+          "default": "SERIAL"
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/output"
+          }
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "pathField"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pathField": {
+          "type": "string",
+          "minLength": 1
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

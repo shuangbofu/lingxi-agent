@@ -1,0 +1,30 @@
+server:
+  port: ${DEMO_SERVER_PORT:8091}
+
+spring:
+  application:
+    name: lingxi-resource-demo
+  datasource:
+    url: jdbc:h2:file:${DEMO_DATA_PATH:./data/resource-demo};MODE=MySQL;DATABASE_TO_LOWER=TRUE;AUTO_SERVER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/init.sql
+
+demo:
+  access-token: ${DEMO_ACCESS_TOKEN:lingxi-demo-token}
+  public-base-url: ${DEMO_PUBLIC_BASE_URL:http://localhost:8091}
+
+logging:
+  level:
+    root: INFO
+    top.fusb.lingxi.demo: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n"

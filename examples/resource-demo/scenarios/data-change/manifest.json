@@ -1,0 +1,90 @@
+{
+  "code": "data-change",
+  "version": "0.0.1",
+  "name": "数据变更",
+  "description": "针对明确的数据新增、补录、修正或状态调整诉求，先验证业务口径和影响范围，再生成受控变更计划，预检备份后由用户确认执行。",
+  "slogan": "你想变更什么数据？",
+  "scenario": "DATA_CHANGE",
+  "icon": "icon.svg",
+  "color": "#fb923c",
+  "promptFile": "prompt.md",
+  "enabled": true,
+  "resultFormat": "markdown-sections",
+  "resultRenderer": "workflow",
+  "presentations": [
+    "steps",
+    "evidence"
+  ],
+  "queuePriority": 100,
+  "capabilities": [
+    "project-hub",
+    "code-repository",
+    "jdbc-readonly-query",
+    "jdbc-change-execute",
+    "wiki-ingest",
+    "ask-question"
+  ],
+  "capabilityConditions": {
+    "wiki-ingest": {
+      "parameter": "referenceKnowledge",
+      "values": [
+        "true"
+      ]
+    }
+  },
+  "parameters": [
+    {
+      "key": "askUserLevel",
+      "name": "询问等级",
+      "type": "select",
+      "required": false,
+      "description": "控制变更前是否允许确认项目、环境、数据源、影响范围和执行动作；默认关键确认。",
+      "defaultValue": "CONFIRM",
+      "sortOrder": 10,
+      "visible": true,
+      "options": [
+        {
+          "label": "关闭",
+          "value": "OFF"
+        },
+        {
+          "label": "必要时",
+          "value": "NECESSARY"
+        },
+        {
+          "label": "关键确认",
+          "value": "CONFIRM"
+        }
+      ]
+    },
+    {
+      "key": "referenceKnowledge",
+      "name": "参考文档",
+      "type": "switch",
+      "required": false,
+      "description": "开启后可检索并参考当前业务项目的文档证据；关闭时不挂载文档证据读取能力。",
+      "defaultValue": "false",
+      "sortOrder": 15,
+      "visible": true
+    },
+    {
+      "key": "userInput",
+      "name": "变更需求",
+      "type": "textarea",
+      "required": true,
+      "description": "输入需要新增、补录、修正或调整的数据对象、期望结果和已知线索",
+      "sortOrder": 20,
+      "visible": true
+    },
+    {
+      "key": "maxRows",
+      "name": "最大影响行数",
+      "type": "number",
+      "required": false,
+      "description": "本次变更允许影响的最大行数；不填时能力默认 100，低风险小变更建议显式填写更小值。",
+      "defaultValue": "10",
+      "sortOrder": 30,
+      "visible": true
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+resource-demo/backend/target
+resource-demo/frontend/node_modules
+resource-demo/frontend/dist
+resource-demo/data
+resource-demo/logs
+resource-demo/backend/data
+resource-demo/backend/logs
+resource-demo/skills/dist
