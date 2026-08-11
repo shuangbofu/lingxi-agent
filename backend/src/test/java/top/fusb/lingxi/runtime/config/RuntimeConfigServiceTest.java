@@ -33,16 +33,25 @@ class RuntimeConfigServiceTest {
     void shouldSaveOnlyGlobalRuntimeSettings() {
         RuntimeConfigRequest request = new RuntimeConfigRequest();
         request.setMaxTaskConcurrency(30);
+        request.setTaskExecutionTimeoutMinutes(90);
         request.setGlobalDailyTokenLimit(10_000L);
         request.setGlobalBoundaryPrompt("全局边界");
 
         RuntimeConfigResponse response = service.save(request);
 
         assertThat(response.getMaxTaskConcurrency()).isEqualTo(20);
+        assertThat(response.getTaskExecutionTimeoutMinutes()).isEqualTo(90);
+        assertThat(service.taskExecutionTimeoutSeconds()).isEqualTo(5_400L);
         assertThat(response.getGlobalDailyTokenLimit()).isEqualTo(10_000L);
         assertThat(response.getGlobalBoundaryPrompt()).isEqualTo("全局边界");
         verify(repository).save(existing);
         verify(eventPublisher).publishEvent(any(RuntimeConfigChangedEvent.class));
+    }
+
+    @Test
+    void shouldUseOneHourDefaultTaskExecutionTimeout() {
+        assertThat(service.detail().getTaskExecutionTimeoutMinutes()).isEqualTo(60);
+        assertThat(service.taskExecutionTimeoutSeconds()).isEqualTo(3_600L);
     }
 
 }

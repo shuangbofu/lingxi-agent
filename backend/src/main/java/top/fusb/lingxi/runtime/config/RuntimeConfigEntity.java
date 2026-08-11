@@ -19,6 +19,9 @@ public class RuntimeConfigEntity {
     private Integer maxTaskConcurrency;
 
     @Column
+    private Integer taskExecutionTimeoutMinutes;
+
+    @Column
     private Long globalDailyTokenLimit;
 
     @Column

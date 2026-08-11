@@ -8,6 +8,8 @@ public class RuntimeConfigResponse {
 
     private Integer maxTaskConcurrency;
 
+    private Integer taskExecutionTimeoutMinutes;
+
     private Long globalDailyTokenLimit;
 
     private Long globalWeeklyTokenLimit;

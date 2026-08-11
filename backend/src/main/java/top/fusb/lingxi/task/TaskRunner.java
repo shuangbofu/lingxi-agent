@@ -200,7 +200,7 @@ public class TaskRunner {
             task = requireEntity(taskId);
             log.info("task started taskId={} scenario={} recovering={}", taskId, task.getScenario(), recovering);
             mainWorkspacePath = prepareTaskWorkspace(task, recovering);
-            long timeout = taskRuntimeService.timeoutSeconds(task);
+            long timeout = runtimeConfigService.taskExecutionTimeoutSeconds();
             Set<String> capabilityCodes = agentTaskRepository.findTaskCapabilityCodesByTaskId(taskId);
             Map<String, Set<String>> capabilityCommands = task.getEnabledCapabilityCommands() != null
                     ? task.getEnabledCapabilityCommands()

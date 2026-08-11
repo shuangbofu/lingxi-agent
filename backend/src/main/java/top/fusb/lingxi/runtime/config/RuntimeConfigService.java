@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -16,6 +17,7 @@ public class RuntimeConfigService {
 
     private static final long CONFIG_ID = 1L;
     private static final int DEFAULT_TASK_CONCURRENCY = 2;
+    private static final int DEFAULT_TASK_EXECUTION_TIMEOUT_MINUTES = 60;
     private static final String DEFAULT_GLOBAL_BOUNDARY_PROMPT = """
             - 只处理当前任务目标，不处理通用闲聊、写作、翻译、外部常识问答或与当前任务无关的问题。
             - 除当前任务明确要求外，不修改文件、不提交、不推送、不执行破坏性操作。
@@ -63,6 +65,8 @@ public class RuntimeConfigService {
     public RuntimeConfigResponse save(RuntimeConfigRequest request) {
         RuntimeConfigEntity entity = getEntity();
         entity.setMaxTaskConcurrency(normalizeTaskConcurrency(request.getMaxTaskConcurrency()));
+        entity.setTaskExecutionTimeoutMinutes(
+                normalizeTaskExecutionTimeoutMinutes(request.getTaskExecutionTimeoutMinutes()));
         entity.setGlobalDailyTokenLimit(request.getGlobalDailyTokenLimit());
         entity.setGlobalWeeklyTokenLimit(request.getGlobalWeeklyTokenLimit());
         entity.setGlobalMonthlyTokenLimit(request.getGlobalMonthlyTokenLimit());
@@ -70,8 +74,9 @@ public class RuntimeConfigService {
         entity.setUpdatedAt(LocalDateTime.now());
         RuntimeConfigEntity saved = runtimeConfigRepository.save(entity);
         eventPublisher.publishEvent(new RuntimeConfigChangedEvent());
-        log.info("保存系统设置 maxTaskConcurrency={} dailyLimit={} weeklyLimit={} monthlyLimit={} globalBoundaryConfigured={}",
-                saved.getMaxTaskConcurrency(), saved.getGlobalDailyTokenLimit(), saved.getGlobalWeeklyTokenLimit(),
+        log.info("保存系统设置 maxTaskConcurrency={} taskExecutionTimeoutMinutes={} dailyLimit={} weeklyLimit={} monthlyLimit={} globalBoundaryConfigured={}",
+                saved.getMaxTaskConcurrency(), saved.getTaskExecutionTimeoutMinutes(),
+                saved.getGlobalDailyTokenLimit(), saved.getGlobalWeeklyTokenLimit(),
                 saved.getGlobalMonthlyTokenLimit(), TextKit.blankToNull(saved.getGlobalBoundaryPrompt()) != null);
         return toResponse(saved);
     }
@@ -83,6 +88,15 @@ public class RuntimeConfigService {
      */
     public int taskConcurrency() {
         return effectiveTaskConcurrency(getEntity());
+    }
+
+    /**
+     * 返回平台单次任务最长执行秒数。
+     *
+     * @return 系统设置中的任务执行分钟数转换后的秒数
+     */
+    public long taskExecutionTimeoutSeconds() {
+        return TimeUnit.MINUTES.toSeconds(effectiveTaskExecutionTimeoutMinutes(getEntity()));
     }
 
     /**
@@ -107,6 +121,7 @@ public class RuntimeConfigService {
     private RuntimeConfigResponse toResponse(RuntimeConfigEntity entity) {
         RuntimeConfigResponse response = new RuntimeConfigResponse();
         response.setMaxTaskConcurrency(effectiveTaskConcurrency(entity));
+        response.setTaskExecutionTimeoutMinutes(effectiveTaskExecutionTimeoutMinutes(entity));
         response.setGlobalDailyTokenLimit(entity.getGlobalDailyTokenLimit());
         response.setGlobalWeeklyTokenLimit(entity.getGlobalWeeklyTokenLimit());
         response.setGlobalMonthlyTokenLimit(entity.getGlobalMonthlyTokenLimit());
@@ -123,5 +138,14 @@ public class RuntimeConfigService {
 
     private Integer normalizeTaskConcurrency(Integer value) {
         return value == null ? DEFAULT_TASK_CONCURRENCY : Math.min(Math.max(value, 1), 20);
+    }
+
+    private int effectiveTaskExecutionTimeoutMinutes(RuntimeConfigEntity entity) {
+        Integer value = entity.getTaskExecutionTimeoutMinutes();
+        return value == null ? DEFAULT_TASK_EXECUTION_TIMEOUT_MINUTES : Math.min(Math.max(value, 5), 1440);
+    }
+
+    private Integer normalizeTaskExecutionTimeoutMinutes(Integer value) {
+        return value == null ? DEFAULT_TASK_EXECUTION_TIMEOUT_MINUTES : Math.min(Math.max(value, 5), 1440);
     }
 }

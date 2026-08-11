@@ -132,6 +132,7 @@ create table if not exists model_pricing_plan (
 create table if not exists runtime_config (
     id bigint primary key,
     max_task_concurrency integer,
+    task_execution_timeout_minutes integer,
     global_daily_token_limit bigint,
     global_weekly_token_limit bigint,
     global_monthly_token_limit bigint,

@@ -307,6 +307,7 @@ export interface RuntimeModelOption {
 
 export interface RuntimeConfig {
   maxTaskConcurrency?: number;
+  taskExecutionTimeoutMinutes?: number;
   globalDailyTokenLimit?: number;
   globalWeeklyTokenLimit?: number;
   globalMonthlyTokenLimit?: number;
@@ -316,6 +317,7 @@ export interface RuntimeConfig {
 
 export interface RuntimeConfigRequest {
   maxTaskConcurrency?: number;
+  taskExecutionTimeoutMinutes?: number;
   globalDailyTokenLimit?: number;
   globalWeeklyTokenLimit?: number;
   globalMonthlyTokenLimit?: number;

@@ -114,10 +114,6 @@ public class TaskRuntimeService {
         return agentRuntimeService.cancel(runtimeCode, taskId.toString());
     }
 
-    public long timeoutSeconds(AgentTaskEntity task) {
-        return agentRuntimeService.defaultTimeoutSeconds(runtimeCode(task));
-    }
-
     public Optional<TokenUsageSnapshot> readUsage(AgentTaskEntity task) {
         RuntimeUsageQuery query = new RuntimeUsageQuery(
                 task.getId().toString(),

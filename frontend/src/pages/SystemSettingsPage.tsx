@@ -76,6 +76,7 @@ export function SystemSettingsPage() {
       : runtimes.find((item) => item.maintenanceSupported)?.code);
     form.setFieldsValue({
       maxTaskConcurrency: config.maxTaskConcurrency || 2,
+      taskExecutionTimeoutMinutes: config.taskExecutionTimeoutMinutes || 60,
       globalDailyTokenLimit: config.globalDailyTokenLimit,
       globalWeeklyTokenLimit: config.globalWeeklyTokenLimit,
       globalMonthlyTokenLimit: config.globalMonthlyTokenLimit,
@@ -161,6 +162,7 @@ export function SystemSettingsPage() {
         </div>
         <div className="settings-overview-grid settings-overview-grid-compact">
           <InfoBox label="平台并行度" value={`${runtimeConfig?.maxTaskConcurrency || 2}`} />
+          <InfoBox label="任务执行时限" value={`${runtimeConfig?.taskExecutionTimeoutMinutes || 60} 分钟`} />
           <InfoBox label="更新时间" value={formatTime(runtimeConfig?.updatedAt)} />
         </div>
 
@@ -191,6 +193,9 @@ export function SystemSettingsPage() {
             <div className="settings-form-grid">
               <Form.Item label="平台并行度" name="maxTaskConcurrency" rules={[{ required: true, message: '请输入平台并行度' }]}>
                 <InputNumber className="w-full" min={1} max={20} precision={0} />
+              </Form.Item>
+              <Form.Item label="任务最长执行时间" name="taskExecutionTimeoutMinutes" rules={[{ required: true, message: '请输入任务最长执行时间' }]}>
+                <InputNumber className="w-full" min={5} max={1440} precision={0} addonAfter="分钟" />
               </Form.Item>
               <Form.Item className="settings-field-wide" label="全局边界" name="globalBoundaryPrompt">
                 <Input.TextArea rows={7} placeholder="请输入平台通用边界" />
