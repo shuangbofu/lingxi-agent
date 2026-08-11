@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import top.fusb.lingxi.config.LingxiProperties;
 import top.fusb.lingxi.definition.AnalysisPremiseDefinition;
+import top.fusb.lingxi.definition.CapabilityCommandExtensionDefinition;
 import top.fusb.lingxi.definition.CapabilityPresentationDefinition;
 import top.fusb.lingxi.definition.LingxiCapabilityDefinition;
 import top.fusb.lingxi.definition.ModuleDefinition;
@@ -16,6 +17,7 @@ import top.fusb.lingxi.dto.AgentDefinitionParameterRequest;
 import top.fusb.lingxi.enums.ErrorCode;
 import top.fusb.lingxi.enums.ErrorSubCode;
 import top.fusb.lingxi.exception.BizException;
+import top.fusb.lingxi.runtime.api.event.RuntimeActionIcon;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
@@ -263,12 +265,18 @@ public class ModuleDefinitionService {
                     "能力缺少 lingxi.json: " + absoluteDir.getFileName());
         }
         try {
-            return objectMapper.readValue(stripBom(Files.readString(extensionFile, StandardCharsets.UTF_8)),
+            LingxiCapabilityDefinition extension = objectMapper.readValue(
+                    stripBom(Files.readString(extensionFile, StandardCharsets.UTF_8)),
                     LingxiCapabilityDefinition.class);
+            validateCommandIcons(extension, absoluteDir.getFileName().toString());
+            return extension;
+        } catch (BizException e) {
+            throw e;
         } catch (Exception e) {
-            log.info("读取 Lingxi 能力扩展失败 file={} message={}", extensionFile, e.getMessage());
+            log.info("读取 Lingxi 能力扩展失败 file={} type={}", extensionFile,
+                    e.getClass().getSimpleName());
             throw new BizException(ErrorCode.SYSTEM_ERROR, ErrorSubCode.DATA_LOAD_FAILED,
-                    "读取 Lingxi 能力扩展失败: " + e.getMessage());
+                    "lingxi.json 格式错误，请检查 JSON 语法和字段类型: " + absoluteDir.getFileName());
         }
     }
 
@@ -535,6 +543,33 @@ public class ModuleDefinitionService {
         if (declaresDynamicOptionSource) {
             throw new BizException(ErrorCode.SYSTEM_ERROR, ErrorSubCode.DATA_LOAD_FAILED,
                     "lingxi.json 能力参数不能声明动态选项源: " + directoryName);
+        }
+    }
+
+    /**
+     * 校验外部能力定义使用的图标标识，避免 JSON 解析层直接绑定运行时枚举。
+     *
+     * @param extension Lingxi 能力扩展定义
+     * @param directoryName 能力目录名，用于定位错误来源
+     * @return 无返回值
+     * @throws BizException 命令图标不在协议支持范围内时抛出
+     */
+    private void validateCommandIcons(LingxiCapabilityDefinition extension, String directoryName) {
+        if (extension == null || extension.getCommands() == null) {
+            return;
+        }
+        for (int index = 0; index < extension.getCommands().size(); index++) {
+            CapabilityCommandExtensionDefinition command = extension.getCommands().get(index);
+            if (command == null || command.getIcon() == null || command.getIcon().isBlank()) {
+                continue;
+            }
+            try {
+                RuntimeActionIcon.fromExternalValue(command.getIcon());
+            } catch (IllegalArgumentException e) {
+                throw new BizException(ErrorCode.SYSTEM_ERROR, ErrorSubCode.DATA_LOAD_FAILED,
+                        "lingxi.json commands[" + index + "].icon 不支持：" + command.getIcon().trim()
+                                + ": " + directoryName);
+            }
         }
     }
 

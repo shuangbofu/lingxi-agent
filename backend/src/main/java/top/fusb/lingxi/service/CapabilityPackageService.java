@@ -13,6 +13,7 @@ import top.fusb.lingxi.dto.CapabilityPackageInspectionResponse;
 import top.fusb.lingxi.enums.ErrorCode;
 import top.fusb.lingxi.enums.ErrorSubCode;
 import top.fusb.lingxi.exception.BizException;
+import top.fusb.lingxi.runtime.api.event.RuntimeActionIcon;
 import top.fusb.lingxi.runtime.capability.CapabilityRuntimeDefinitionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -114,11 +115,15 @@ public class CapabilityPackageService {
             return inspectionResponse(stagingToken, file.getSize(), packageHash, inspection, existing);
         } catch (BizException e) {
             deleteDirectoryQuietly(stagingDir);
+            if (e.getErrorCode() == ErrorCode.SYSTEM_ERROR
+                    && e.getErrorSubCode() == ErrorSubCode.DATA_LOAD_FAILED) {
+                throw packageError(e.getMessage());
+            }
             throw e;
         } catch (Exception e) {
             deleteDirectoryQuietly(stagingDir);
-            log.info("Inspect capability package failed file={} message={}", originalName, e.getMessage());
-            throw packageError("读取能力安装包失败：" + e.getMessage());
+            log.error("Inspect capability package failed file={}", originalName, e);
+            throw packageError("读取能力安装包失败，请检查 ZIP 文件结构");
         }
     }
 
@@ -180,9 +185,9 @@ public class CapabilityPackageService {
                 deleteDirectoryQuietly(target);
             }
             restoreBackup(backup, target);
-            log.info("Install capability package failed token={} message={}", stagingToken, e.getMessage());
+            log.error("Install capability package failed token={}", stagingToken, e);
             throw new BizException(ErrorCode.SYSTEM_ERROR, ErrorSubCode.DATA_LOAD_FAILED,
-                    "安装能力失败：" + e.getMessage());
+                    "安装能力失败，请重新上传能力包后重试");
         }
     }
 
@@ -252,7 +257,7 @@ public class CapabilityPackageService {
             item.setModuleCode(definition.getCode());
             item.setCode(publicCommand.replace(' ', '.'));
             item.setName(command.getDisplayName().trim());
-            item.setIcon(command.getIcon());
+            item.setIcon(RuntimeActionIcon.fromExternalValue(command.getIcon()));
             item.setCommand(publicCommand);
             item.setDescription(command.getDescription());
             item.setOutputs(command.getOutputs() == null ? List.of() : command.getOutputs());

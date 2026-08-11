@@ -124,6 +124,21 @@ class CapabilityPackageServiceTest {
                 });
     }
 
+    @Test
+    void shouldRejectUnsupportedIconWithoutLeakingParserInternals() throws Exception {
+        Map<String, String> entries = validPackageEntries();
+        entries.computeIfPresent("sample-capability/lingxi.json",
+                (path, content) -> content.replace("\"displayName\": \"运行示例能力\"",
+                        "\"displayName\": \"运行示例能力\", \"icon\": \"STOP\""));
+
+        assertThatThrownBy(() -> service.inspect(packageFile(entries)))
+                .isInstanceOfSatisfying(BizException.class, error -> {
+                    assertThat(error.getErrorSubCode()).isEqualTo(ErrorSubCode.CAPABILITY_PACKAGE_INVALID);
+                    assertThat(error.getMessage()).contains("commands[0].icon 不支持：STOP")
+                            .doesNotContain("Cannot deserialize", "RuntimeActionIcon", "through reference chain");
+                });
+    }
+
     private Map<String, String> validPackageEntries() {
         Map<String, String> entries = new LinkedHashMap<>();
         entries.put("sample-capability/SKILL.md", """

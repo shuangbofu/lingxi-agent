@@ -15,6 +15,7 @@ import top.fusb.lingxi.entity.AgentCapabilityEntity;
 import top.fusb.lingxi.enums.ErrorCode;
 import top.fusb.lingxi.enums.ErrorSubCode;
 import top.fusb.lingxi.exception.BizException;
+import top.fusb.lingxi.runtime.api.event.RuntimeActionIcon;
 import top.fusb.lingxi.kit.DefinitionAssetUrlKit;
 import top.fusb.lingxi.repository.AgentCapabilityRepository;
 
@@ -196,7 +197,7 @@ public class AgentCapabilityService {
             target.setModuleCode(module.getCode());
             target.setCode(command.replace(' ', '.'));
             target.setName(source.getDisplayName());
-            target.setIcon(source.getIcon());
+            target.setIcon(RuntimeActionIcon.fromExternalValue(source.getIcon()));
             target.setCommand(command);
             target.setDescription(source.getDescription());
             target.setOutputs(source.getOutputs() == null ? List.of() : source.getOutputs());

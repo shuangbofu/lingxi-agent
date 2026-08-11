@@ -181,7 +181,7 @@ public class CapabilityRuntimeScriptService {
                         module.getModuleCode(), actionCode, command, definition.getDisplayName(),
                         definition.getDescription(), root.resolve("bin").resolve(parts[0]).toString(),
                         List.of(parts[1]), runtimeOutputs(definition.getOutputs()), null, List.of(),
-                        definition.getIcon(), definition.getExecutionMode()));
+                        RuntimeActionIcon.fromExternalValue(definition.getIcon()), definition.getExecutionMode()));
                 if (existing != null) {
                     throw new IllegalStateException("能力业务命令重复：" + command);
                 }

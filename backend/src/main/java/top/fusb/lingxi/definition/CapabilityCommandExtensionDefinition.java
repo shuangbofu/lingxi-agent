@@ -1,7 +1,6 @@
 package top.fusb.lingxi.definition;
 
 import top.fusb.lingxi.dto.CapabilityCommandOutputDefinition;
-import top.fusb.lingxi.runtime.api.event.RuntimeActionIcon;
 import top.fusb.lingxi.runtime.api.execution.RuntimeToolExecutionMode;
 import lombok.Data;
 
@@ -14,7 +13,7 @@ public class CapabilityCommandExtensionDefinition {
 
     private String displayName;
 
-    private RuntimeActionIcon icon;
+    private String icon;
 
     private String description;
 

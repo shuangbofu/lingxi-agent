@@ -36,5 +36,19 @@ public enum RuntimeActionIcon {
     BROWSER,
     HEAD_CIRCUIT,
     WARNING_CIRCLE,
-    X_CIRCLE
+    X_CIRCLE;
+
+    /**
+     * 将能力扩展协议中的图标标识转换为运行时图标语义。
+     *
+     * @param value lingxi.json 中的图标标识，允许为空
+     * @return 对应的运行时图标语义；输入为空时返回 null
+     * @throws IllegalArgumentException 图标标识不在协议支持范围内时抛出
+     */
+    public static RuntimeActionIcon fromExternalValue(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return RuntimeActionIcon.valueOf(value.trim());
+    }
 }

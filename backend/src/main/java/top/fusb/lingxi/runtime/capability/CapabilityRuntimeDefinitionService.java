@@ -7,6 +7,7 @@ import top.fusb.lingxi.definition.LingxiCapabilityDefinition;
 import top.fusb.lingxi.enums.ErrorCode;
 import top.fusb.lingxi.enums.ErrorSubCode;
 import top.fusb.lingxi.exception.BizException;
+import top.fusb.lingxi.runtime.api.event.RuntimeActionIcon;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -92,6 +93,11 @@ public class CapabilityRuntimeDefinitionService {
             LingxiCapabilityDefinition extension = objectMapper.readValue(
                     stripBom(Files.readString(extensionFile, StandardCharsets.UTF_8)),
                     LingxiCapabilityDefinition.class);
+            if (extension.getCommands() != null) {
+                extension.getCommands().stream()
+                        .filter(Objects::nonNull)
+                        .forEach(command -> RuntimeActionIcon.fromExternalValue(command.getIcon()));
+            }
             String entrypoint = extension.getEntrypoint();
             if (entrypoint != null && !entrypoint.isBlank()
                     && !entrypoint.trim().replace('\\', '/').endsWith(".py")) {
@@ -107,9 +113,10 @@ public class CapabilityRuntimeDefinitionService {
             module.setCommands(extension.getCommands());
             return module;
         } catch (Exception e) {
-            log.info("读取 Skill 执行目录失败 extension={} message={}", extensionFile, e.getMessage());
+            log.info("读取 Skill 执行目录失败 extension={} type={}", extensionFile,
+                    e.getClass().getSimpleName());
             throw new BizException(ErrorCode.SYSTEM_ERROR, ErrorSubCode.DATA_LOAD_FAILED,
-                    "读取 Skill 执行目录失败：" + e.getMessage());
+                    "读取 Skill 执行目录失败，请检查 lingxi.json 格式: " + moduleDir.getFileName());
         }
     }
 

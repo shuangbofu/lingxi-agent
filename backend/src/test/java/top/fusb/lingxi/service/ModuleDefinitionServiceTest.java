@@ -98,6 +98,21 @@ class ModuleDefinitionServiceTest {
     }
 
     @Test
+    void shouldHideJsonParserInternalsForMalformedCapabilityExtension() throws Exception {
+        Path moduleDir = tempDir.resolve("skills/sample");
+        Files.createDirectories(moduleDir);
+        Files.writeString(moduleDir.resolve("lingxi.json"), "{\"commands\": [}");
+        LingxiProperties properties = new LingxiProperties();
+        ModuleDefinitionService service = new ModuleDefinitionService(new ObjectMapper(), properties);
+
+        assertThatThrownBy(() -> service.readCapabilityExtension(moduleDir))
+                .isInstanceOfSatisfying(top.fusb.lingxi.exception.BizException.class, error ->
+                        assertThat(error.getMessage())
+                                .isEqualTo("lingxi.json 格式错误，请检查 JSON 语法和字段类型: sample")
+                                .doesNotContain("JsonToken", "line:", "column:", "reference chain"));
+    }
+
+    @Test
     void shouldLoadPremisesFromClasspath() {
         LingxiProperties properties = new LingxiProperties();
         ModuleDefinitionService service = new ModuleDefinitionService(new ObjectMapper(), properties);

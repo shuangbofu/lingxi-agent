@@ -111,7 +111,7 @@ class CapabilityRuntimeScriptServiceTest {
         CapabilityCommandExtensionDefinition commandDefinition = new CapabilityCommandExtensionDefinition();
         commandDefinition.setCommand("sample run");
         commandDefinition.setDisplayName("运行示例");
-        commandDefinition.setIcon(RuntimeActionIcon.PLAY_CIRCLE);
+        commandDefinition.setIcon("PLAY_CIRCLE");
         CapabilityCommandOutputDefinition boundOutput = new CapabilityCommandOutputDefinition();
         boundOutput.setType("file-root");
         boundOutput.setPathField("worktreePath");
