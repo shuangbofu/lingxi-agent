@@ -22,6 +22,14 @@ LINGXI_FIELDS = {
     "entrypoint", "taskParameters", "configurationParameters", "guides", "commands",
 }
 COMMAND_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)* [a-z0-9]+(?:-[a-z0-9]+)*$")
+RUNTIME_ACTION_ICONS = {
+    "WRENCH", "TERMINAL", "BOOK_OPEN", "FILE_TEXT", "FILE_PLUS", "FILE_MAGNIFYING_GLASS",
+    "MAGNIFYING_GLASS", "BRACKETS_CURLY", "CODE", "GRAPH", "GIT_DIFF", "TREE_STRUCTURE",
+    "PLUGS_CONNECTED", "QUESTION", "LIST_BULLETS", "CHECK_CIRCLE", "CALENDAR", "CLOCK",
+    "DATABASE", "FOLDER", "GIT_BRANCH", "GIT_COMMIT", "SHIELD_CHECK", "ARROW_COUNTER_CLOCKWISE",
+    "PLAY_CIRCLE", "VIDEO_CAMERA", "IMAGE_SQUARE", "EYE", "HISTORY", "BROWSER", "HEAD_CIRCUIT",
+    "WARNING_CIRCLE", "X_CIRCLE",
+}
 
 
 def load_json(path, errors):
@@ -141,6 +149,11 @@ def validate_commands(extension_path, commands, errors):
         display_name = definition.get("displayName")
         if not isinstance(display_name, str) or not display_name.strip():
             errors.append(f"{extension_path.relative_to(ROOT)}: commands.displayName must not be blank")
+        icon = definition.get("icon")
+        if icon is not None and icon not in RUNTIME_ACTION_ICONS:
+            errors.append(
+                f"{extension_path.relative_to(ROOT)}: commands.icon is not a RuntimeActionIcon: {icon!r}"
+            )
         if command in selectors:
             errors.append(f"{extension_path.relative_to(ROOT)}: duplicate commands.command: {command}")
         selectors.add(command)
