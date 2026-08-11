@@ -13,12 +13,14 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 public final class LangChainCapabilityRegistry {
 
@@ -26,8 +28,22 @@ public final class LangChainCapabilityRegistry {
     private final Map<String, RuntimeCommandDescriptor> commands;
     private final Map<String, SkillReadProgress> skillReadProgress = new ConcurrentHashMap<>();
     private final Set<String> inspectedSkills = ConcurrentHashMap.newKeySet();
+    private final Consumer<Set<String>> inspectedSkillsConsumer;
 
     public LangChainCapabilityRegistry(RuntimeExecutionEnvironment environment) {
+        this(environment, Set.of(), ignored -> { });
+    }
+
+    /**
+     * 根据当前任务授权环境和持久化读取状态创建能力注册表。
+     *
+     * @param environment 当前任务授权的 Skill 与命令
+     * @param restoredInspectedSkills 恢复前已经完整读取说明的 Skill
+     * @param inspectedSkillsConsumer 新 Skill 解锁后的持久化回调
+     */
+    public LangChainCapabilityRegistry(RuntimeExecutionEnvironment environment,
+                                       Collection<String> restoredInspectedSkills,
+                                       Consumer<Set<String>> inspectedSkillsConsumer) {
         Map<String, RuntimeSkillDescriptor> skillMap = new LinkedHashMap<>();
         for (RuntimeSkillDescriptor skill : environment == null
                 ? List.<RuntimeSkillDescriptor>of() : environment.skills()) {
@@ -52,7 +68,12 @@ public final class LangChainCapabilityRegistry {
             }
         }
         commands = Map.copyOf(commandMap);
-
+        this.inspectedSkillsConsumer = inspectedSkillsConsumer == null ? ignored -> { } : inspectedSkillsConsumer;
+        for (String skillName : restoredInspectedSkills == null ? List.<String>of() : restoredInspectedSkills) {
+            if (skillName != null && skills.containsKey(skillName.trim())) {
+                inspectedSkills.add(skillName.trim());
+            }
+        }
     }
 
     /**
@@ -117,7 +138,8 @@ public final class LangChainCapabilityRegistry {
      * @param endLine 本次返回的末行；未返回任何行时可小于 startLine
      * @param eofLine 已到达文件末尾时的总行数，否则为 null
      */
-    public void recordSkillInstructionsRead(String skillName, int startLine, int endLine, Integer eofLine) {
+    public synchronized void recordSkillInstructionsRead(
+            String skillName, int startLine, int endLine, Integer eofLine) {
         String name = skillName == null ? "" : skillName.trim();
         if (!skills.containsKey(name)) {
             throw new IllegalArgumentException("Skill 未安装或当前任务未授权：" + name);
@@ -126,8 +148,13 @@ public final class LangChainCapabilityRegistry {
             throw new IllegalArgumentException("Skill 读取区间无效：" + startLine + "-" + endLine);
         }
         SkillReadProgress progress = skillReadProgress.computeIfAbsent(name, ignored -> new SkillReadProgress());
-        if (progress.record(startLine, endLine, eofLine)) {
-            inspectedSkills.add(name);
+        if (progress.record(startLine, endLine, eofLine) && inspectedSkills.add(name)) {
+            try {
+                inspectedSkillsConsumer.accept(Set.copyOf(inspectedSkills));
+            } catch (RuntimeException exception) {
+                inspectedSkills.remove(name);
+                throw exception;
+            }
         }
     }
 

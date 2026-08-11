@@ -28,6 +28,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -194,6 +195,62 @@ class LangChainWorkspaceToolsTest {
                         .build(),
                 "test"
         )).hasMessageContaining("当前任务未声明", "当前可用命令", "project-hub project-context");
+    }
+
+    @Test
+    void restoresOnlyCurrentlyMountedSkillAccessAndPersistsNewUnlocks() throws Exception {
+        Path projectHubRoot = workspace.resolve("installed-skills/project-hub");
+        Path codeRepositoryRoot = workspace.resolve("installed-skills/code-repository");
+        Files.createDirectories(projectHubRoot);
+        Files.createDirectories(codeRepositoryRoot);
+        Files.writeString(projectHubRoot.resolve("SKILL.md"), "# Project Hub\n", StandardCharsets.UTF_8);
+        Files.writeString(codeRepositoryRoot.resolve("SKILL.md"), "# Code Repository\n", StandardCharsets.UTF_8);
+        Path launcher = workspace.resolve("unused-skill-executable");
+        environment = environment(List.of(
+                        skillCommand("project-hub", "project-hub.list", "project-hub project-list",
+                                "项目列表", launcher, List.of("project-list"), List.of()),
+                        skillCommand("code-repository", "code-repository.info", "code-repository repository-info",
+                                "仓库信息", launcher, List.of("repository-info"), List.of())),
+                List.of(
+                        new RuntimeSkillDescriptor("project-hub", "项目中心", projectHubRoot.toString()),
+                        new RuntimeSkillDescriptor("code-repository", "代码仓库", codeRepositoryRoot.toString())));
+        AtomicReference<Set<String>> persisted = new AtomicReference<>(Set.of());
+        LangChainCapabilityRegistry registry = new LangChainCapabilityRegistry(
+                environment, Set.of("project-hub", "revoked-skill"), persisted::set);
+        LangChainRegistryToolProvider provider = new LangChainRegistryToolProvider(
+                registry, null, new ObjectMapper());
+
+        JsonEnumSchema restoredSchema = (JsonEnumSchema) provider.provideTools(null)
+                .toolSpecificationByName("run_skill_command").parameters().properties().get("command");
+        assertThat(restoredSchema.enumValues()).containsExactly("project-hub project-list");
+
+        registry.recordSkillInstructionsRead("code-repository", 1, 1, 1);
+
+        assertThat(persisted.get()).containsExactlyInAnyOrder("project-hub", "code-repository");
+    }
+
+    @Test
+    void doesNotUnlockSkillWhenAccessStateCannotBePersisted() throws Exception {
+        Path skillRoot = workspace.resolve("installed-skills/project-hub");
+        Files.createDirectories(skillRoot);
+        Files.writeString(skillRoot.resolve("SKILL.md"), "# Project Hub\n", StandardCharsets.UTF_8);
+        Path launcher = workspace.resolve("unused-project-hub-executable");
+        environment = environment(List.of(
+                        skillCommand("project-hub", "project-hub.list", "project-hub project-list",
+                                "项目列表", launcher, List.of("project-list"), List.of())),
+                List.of(new RuntimeSkillDescriptor("project-hub", "项目中心", skillRoot.toString())));
+        LangChainCapabilityRegistry registry = new LangChainCapabilityRegistry(
+                environment, Set.of(), ignored -> {
+                    throw new IllegalStateException("状态文件不可写");
+                });
+        LangChainRegistryToolProvider provider = new LangChainRegistryToolProvider(
+                registry, null, new ObjectMapper());
+
+        assertThatThrownBy(() -> registry.recordSkillInstructionsRead("project-hub", 1, 1, 1))
+                .hasMessageContaining("状态文件不可写");
+
+        assertThat(registry.skillInstructionsRead("project-hub")).isFalse();
+        assertThat(provider.provideTools(null).tools()).isEmpty();
     }
 
     @Test

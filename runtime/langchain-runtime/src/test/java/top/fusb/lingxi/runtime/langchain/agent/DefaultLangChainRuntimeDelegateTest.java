@@ -16,6 +16,8 @@ import top.fusb.lingxi.runtime.langchain.capability.LangChainCapabilityRegistry;
 import top.fusb.lingxi.runtime.langchain.config.LangChainRuntimeProperties;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.output.FinishReason;
@@ -151,6 +153,42 @@ class DefaultLangChainRuntimeDelegateTest {
                 UserMessage.from("找一个可以请款的资产包"),
                 AiMessage.from("已按未申请状态查询到 879 个资产包")
         );
+    }
+
+    @Test
+    void recoversLegacySkillAccessOnlyFromSuccessfulCommandHistory() {
+        DefaultLangChainRuntimeDelegate delegate = new DefaultLangChainRuntimeDelegate(new LangChainRuntimeProperties());
+        ToolExecutionRequest successful = ToolExecutionRequest.builder()
+                .id("call-project")
+                .name("run_skill_command")
+                .arguments("{\"command\":\"project-hub project-list\",\"arguments\":[]}")
+                .build();
+        ToolExecutionRequest failed = ToolExecutionRequest.builder()
+                .id("call-code")
+                .name("run_skill_command")
+                .arguments("{\"command\":\"code-repo prepare\",\"arguments\":[]}")
+                .build();
+        List<RuntimeCommandDescriptor> commands = List.of(
+                new RuntimeCommandDescriptor("project-hub", "project-hub.list", "project-hub project-list",
+                        "项目列表", "", "/tmp/project-hub", List.of(), List.of()),
+                new RuntimeCommandDescriptor("code-repository", "code-repository.prepare", "code-repo prepare",
+                        "准备仓库", "", "/tmp/code-repo", List.of(), List.of()));
+        List<ChatMessage> messages = List.of(
+                AiMessage.from(successful),
+                ToolExecutionResultMessage.from(successful, "项目列表"),
+                AiMessage.from(failed),
+                ToolExecutionResultMessage.builder()
+                        .id(failed.id())
+                        .toolName(failed.name())
+                        .text("工具执行失败")
+                        .isError(true)
+                        .build());
+        try {
+            assertThat(delegate.recoverSkillAccessFromHistory(commands, messages))
+                    .containsExactly("project-hub");
+        } finally {
+            delegate.close();
+        }
     }
 
     @Test

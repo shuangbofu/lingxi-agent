@@ -11,6 +11,7 @@ import top.fusb.lingxi.runtime.api.event.RuntimeEventStatus;
 import top.fusb.lingxi.runtime.api.event.RuntimeEventType;
 import top.fusb.lingxi.runtime.api.execution.RuntimeExecutionRequest;
 import top.fusb.lingxi.runtime.api.execution.RuntimeExecutionResult;
+import top.fusb.lingxi.runtime.api.execution.RuntimeCommandDescriptor;
 import top.fusb.lingxi.runtime.api.model.RuntimeModelConfig;
 import top.fusb.lingxi.runtime.api.model.RuntimeModelProtocol;
 import top.fusb.lingxi.runtime.api.model.RuntimeMessageDelta;
@@ -40,6 +41,7 @@ import top.fusb.lingxi.runtime.langchain.agent.model.LangChainRetryingStreamingC
 import top.fusb.lingxi.runtime.langchain.agent.tool.LangChainToolExecutors;
 import top.fusb.lingxi.runtime.langchain.capability.LangChainCapabilityRegistry;
 import top.fusb.lingxi.runtime.langchain.capability.LangChainRegistryToolProvider;
+import top.fusb.lingxi.runtime.langchain.capability.LangChainSkillAccessStateStore;
 import top.fusb.lingxi.runtime.langchain.capability.LangChainWorkspaceTools;
 import top.fusb.lingxi.runtime.langchain.config.LangChainRuntimeProperties;
 import top.fusb.lingxi.runtime.langchain.core.LangChainRuntimeDelegate;
@@ -50,6 +52,8 @@ import top.fusb.lingxi.runtime.langchain.mcp.LangChainMcpTools;
 import top.fusb.lingxi.runtime.langchain.util.LangChainErrorMessageKit;
 import top.fusb.lingxi.runtime.langchain.util.LangChainPromptKit;
 import dev.langchain4j.data.message.ImageContent;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.data.message.UserMessage;
@@ -78,9 +82,12 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -245,7 +252,6 @@ public class DefaultLangChainRuntimeDelegate implements LangChainRuntimeDelegate
         StringBuffer roundText = new StringBuffer();
         StringBuffer roundThinking = new StringBuffer();
         AtomicInteger modelRound = new AtomicInteger(1);
-        LangChainCapabilityRegistry capabilityRegistry = new LangChainCapabilityRegistry(request.environment());
         Path memoryFile = Path.of(request.workspace().runtimeStateRoot()).resolve("chat-memory.json");
         Path compactionStateFile = LangChainCompactionStateStore.stateFileForMemory(memoryFile);
         LangChainFileChatMemoryStore chatMemoryStore = new LangChainFileChatMemoryStore(memoryFile);
@@ -253,6 +259,8 @@ public class DefaultLangChainRuntimeDelegate implements LangChainRuntimeDelegate
                 Path.of(request.workspace().runtimeStateRoot()).resolve("evidence"), objectMapper);
         LangChainCompactionStateStore compactionStateStore =
                 new LangChainCompactionStateStore(compactionStateFile, objectMapper);
+        LangChainSkillAccessStateStore skillAccessStateStore = new LangChainSkillAccessStateStore(
+                LangChainSkillAccessStateStore.stateFileForMemory(memoryFile), objectMapper);
         if (request.recovering()) {
             restoreSessionIfCurrentMemoryMissing(request.resumeSession(), chatMemoryStore);
             restoreEvidenceIfCurrentIndexMissing(request.resumeSession(), evidenceStore);
@@ -266,14 +274,29 @@ public class DefaultLangChainRuntimeDelegate implements LangChainRuntimeDelegate
             if (!sourceMemoryFile.equals(memoryFile.toAbsolutePath().normalize())) {
                 compactionStateStore.restoreFrom(
                         LangChainCompactionStateStore.stateFileForMemory(sourceMemoryFile));
+                skillAccessStateStore.restoreFrom(
+                        LangChainSkillAccessStateStore.stateFileForMemory(sourceMemoryFile));
             }
             log.info("LangChain conversation resumed executionId={} sessionId={} restoredMessages={}",
                     request.executionId(), request.resumeSession().sessionId(), restoredMessages);
         } else {
             chatMemoryStore.deleteMessages(request.executionId());
             compactionStateStore.clear();
+            skillAccessStateStore.clear();
             evidenceStore.clear();
         }
+        Set<String> restoredSkillAccess = new LinkedHashSet<>(skillAccessStateStore.read());
+        if (restoredSkillAccess.isEmpty() && (request.recovering() || request.resumeSession() != null)) {
+            restoredSkillAccess.addAll(recoverSkillAccessFromHistory(
+                    request.environment().commands(), chatMemoryStore.getMessages(request.executionId())));
+            if (!restoredSkillAccess.isEmpty()) {
+                skillAccessStateStore.write(restoredSkillAccess);
+                log.info("Recovered legacy LangChain Skill access executionId={} skills={}",
+                        request.executionId(), restoredSkillAccess);
+            }
+        }
+        LangChainCapabilityRegistry capabilityRegistry = new LangChainCapabilityRegistry(
+                request.environment(), restoredSkillAccess, skillAccessStateStore::write);
         LangChainActiveToolResultProjector activeToolResultProjector = new LangChainActiveToolResultProjector(
                 request.executionId(), tokenEstimator, evidenceStore,
                 properties.getActiveToolResultMaxTokens());
@@ -494,6 +517,51 @@ public class DefaultLangChainRuntimeDelegate implements LangChainRuntimeDelegate
             executions.remove(request.executionId());
             executionMcpRuntimes.forEach(runtime -> runtime.cleanupExecution(request.executionId()));
         }
+    }
+
+    /**
+     * 为没有独立授权状态文件的旧会话，从成功执行过的 Skill 命令恢复最小授权集。
+     *
+     * @param commands 当前任务实际授权的命令
+     * @param messages 恢复后的完整聊天记录
+     * @return 在当前授权范围内且历史执行成功的 Skill 名称
+     */
+    Set<String> recoverSkillAccessFromHistory(List<RuntimeCommandDescriptor> commands,
+                                              List<ChatMessage> messages) {
+        Map<String, String> skillByCommand = new LinkedHashMap<>();
+        for (RuntimeCommandDescriptor command : commands == null ? List.<RuntimeCommandDescriptor>of() : commands) {
+            if (command != null && command.skillCommand() && command.command() != null
+                    && command.moduleCode() != null) {
+                skillByCommand.put(command.command().trim().replaceAll("\\s+", " "), command.moduleCode());
+            }
+        }
+        Map<String, String> pendingSkillByCall = new LinkedHashMap<>();
+        Set<String> restored = new LinkedHashSet<>();
+        for (ChatMessage message : messages == null ? List.<ChatMessage>of() : messages) {
+            if (message instanceof AiMessage aiMessage && aiMessage.hasToolExecutionRequests()) {
+                for (ToolExecutionRequest toolRequest : aiMessage.toolExecutionRequests()) {
+                    if (!"run_skill_command".equals(toolRequest.name())) {
+                        continue;
+                    }
+                    try {
+                        String command = objectMapper.readTree(toolRequest.arguments()).path("command").asText("")
+                                .trim().replaceAll("\\s+", " ");
+                        String skillName = skillByCommand.get(command);
+                        if (skillName != null) {
+                            pendingSkillByCall.put(toolRequest.id(), skillName);
+                        }
+                    } catch (Exception ignored) {
+                        // 旧会话中的非法调用不能作为 Skill 已授权的证据。
+                    }
+                }
+            } else if (message instanceof ToolExecutionResultMessage result) {
+                String skillName = pendingSkillByCall.remove(result.id());
+                if (skillName != null && !Boolean.TRUE.equals(result.isError())) {
+                    restored.add(skillName);
+                }
+            }
+        }
+        return Set.copyOf(restored);
     }
 
     /**
