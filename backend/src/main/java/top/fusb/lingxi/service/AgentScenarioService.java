@@ -14,12 +14,16 @@ import top.fusb.lingxi.dto.AgentTaskDefinition;
 import top.fusb.lingxi.dto.PageResult;
 import top.fusb.lingxi.dto.PublicScenarioResponse;
 import top.fusb.lingxi.entity.AgentScenarioEntity;
+import top.fusb.lingxi.entity.AnalysisPremiseEntity;
 import top.fusb.lingxi.enums.ErrorCode;
 import top.fusb.lingxi.enums.ErrorSubCode;
 import top.fusb.lingxi.enums.ScenarioInputMode;
+import top.fusb.lingxi.enums.TaskStatus;
 import top.fusb.lingxi.exception.BizException;
 import top.fusb.lingxi.kit.DefinitionAssetUrlKit;
 import top.fusb.lingxi.repository.AgentScenarioRepository;
+import top.fusb.lingxi.repository.AgentTaskRepository;
+import top.fusb.lingxi.repository.AnalysisPremiseRepository;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -35,6 +39,8 @@ import java.util.Set;
 public class AgentScenarioService {
 
     private final AgentScenarioRepository agentScenarioRepository;
+    private final AgentTaskRepository agentTaskRepository;
+    private final AnalysisPremiseRepository analysisPremiseRepository;
     private final ModuleDefinitionService moduleDefinitionService;
     private final AgentDefinitionSupport definitionSupport;
     private final DefinitionParameterOptionService definitionParameterOptionService;
@@ -231,6 +237,52 @@ public class AgentScenarioService {
         return toResponse(definition, state);
     }
 
+    /**
+     * 删除已停用场景的运行状态，并清理分析情境中的场景引用。
+     *
+     * @param code 已从安装目录移出的场景编码
+     * @return 无返回值
+     * @throws BizException 场景仍启用或存在未结束任务时抛出
+     */
+    @Transactional
+    public void uninstallState(String code) {
+        AgentScenarioEntity entity = requireEntity(code);
+        if (entity.isEnabled()) {
+            throw new BizException(ErrorCode.PARAM_ERROR, ErrorSubCode.VALIDATION_FAILED,
+                    "请先停用场景再卸载");
+        }
+        if (agentTaskRepository.existsByScenarioCodeAndStatusIn(code,
+                List.of(TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.WAITING_USER))) {
+            throw new BizException(ErrorCode.PARAM_ERROR, ErrorSubCode.VALIDATION_FAILED,
+                    "场景仍有未结束任务，暂时不能卸载");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        List<AnalysisPremiseEntity> changedPremises = analysisPremiseRepository.findAll().stream()
+                .filter(premise -> {
+                    Set<String> visibleCodes = new LinkedHashSet<>(premise.getVisibleScenarioCodes() == null
+                            ? Set.of() : premise.getVisibleScenarioCodes());
+                    Map<String, Map<String, String>> contextValues = new LinkedHashMap<>(
+                            premise.getScenarioContextValues() == null
+                                    ? Map.of() : premise.getScenarioContextValues());
+                    boolean visibleChanged = visibleCodes.remove(code);
+                    boolean contextChanged = contextValues.remove(code) != null;
+                    boolean changed = visibleChanged || contextChanged;
+                    if (changed) {
+                        premise.setVisibleScenarioCodes(visibleCodes);
+                        premise.setScenarioContextValues(contextValues);
+                        premise.setUpdatedAt(now);
+                    }
+                    return changed;
+                })
+                .toList();
+        if (!changedPremises.isEmpty()) {
+            analysisPremiseRepository.saveAll(changedPremises);
+        }
+        agentScenarioRepository.delete(entity);
+        log.info("Uninstalled scenario state code={} cleanedPremiseCount={}", code, changedPremises.size());
+    }
+
     private Map<String, ModuleDefinition> definitionMap() {
         Map<String, ModuleDefinition> result = new LinkedHashMap<>();
         moduleDefinitionService.listInstalledScenarios().forEach(definition -> result.put(definition.getCode(), definition));
@@ -252,6 +304,7 @@ public class AgentScenarioService {
         response.setColor(definition.getColor());
         response.setPromptText(moduleDefinitionService.readPrompt(definition));
         response.setEnabled(state.isEnabled());
+        response.setUninstallable(definition.isInstalled());
         response.setUserVisible(state.isUserVisible());
         response.setPackageVersion(definition.getVersion());
         response.setSortOrder(state.getSortOrder());

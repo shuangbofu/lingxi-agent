@@ -9,6 +9,7 @@ import top.fusb.lingxi.service.AgentCapabilityService;
 import top.fusb.lingxi.service.CapabilityPackageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -65,5 +66,19 @@ public class AgentCapabilityController {
     @RequirePermission("DEFINITION_ADMIN")
     public AgentCapabilityResponse installPackage(@PathVariable String stagingToken) {
         return capabilityPackageService.install(stagingToken);
+    }
+
+    /**
+     * 卸载外置 Skill 安装包。
+     *
+     * @param code Skill 编码
+     * @return 无响应数据
+     * @throws top.fusb.lingxi.exception.BizException Skill 不可卸载或仍在使用时抛出
+     */
+    @DeleteMapping("/{code}")
+    @RequirePermission("DEFINITION_ADMIN")
+    public Void uninstall(@PathVariable String code) {
+        capabilityPackageService.uninstall(code);
+        return null;
     }
 }

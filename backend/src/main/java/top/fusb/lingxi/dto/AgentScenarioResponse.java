@@ -23,6 +23,7 @@ public class AgentScenarioResponse {
     private String color;
     private String promptText;
     private boolean enabled;
+    private boolean uninstallable;
     private boolean userVisible;
     private String packageVersion;
     private Integer sortOrder;

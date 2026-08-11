@@ -11,8 +11,11 @@ import top.fusb.lingxi.definition.CapabilityCommandExtensionDefinition;
 import top.fusb.lingxi.definition.LingxiCapabilityDefinition;
 import top.fusb.lingxi.dto.AgentScenarioStateUpdateRequest;
 import top.fusb.lingxi.entity.AgentScenarioEntity;
+import top.fusb.lingxi.entity.AnalysisPremiseEntity;
 import top.fusb.lingxi.enums.ScenarioInputMode;
 import top.fusb.lingxi.repository.AgentScenarioRepository;
+import top.fusb.lingxi.repository.AgentTaskRepository;
+import top.fusb.lingxi.repository.AnalysisPremiseRepository;
 
 import java.time.LocalDateTime;
 import java.nio.file.Path;
@@ -35,6 +38,12 @@ class AgentScenarioServiceTest {
     private AgentScenarioRepository repository;
 
     @Mock
+    private AgentTaskRepository agentTaskRepository;
+
+    @Mock
+    private AnalysisPremiseRepository analysisPremiseRepository;
+
+    @Mock
     private ModuleDefinitionService moduleDefinitionService;
 
     @Mock
@@ -47,7 +56,8 @@ class AgentScenarioServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new AgentScenarioService(repository, moduleDefinitionService, definitionSupport,
+        service = new AgentScenarioService(repository, agentTaskRepository, analysisPremiseRepository,
+                moduleDefinitionService, definitionSupport,
                 definitionParameterOptionService);
     }
 
@@ -230,6 +240,43 @@ class AgentScenarioServiceTest {
         assertThatThrownBy(() -> service.reorder(List.of("first")))
                 .hasMessageContaining("场景列表已变化");
         verify(repository, never()).saveAll(any());
+    }
+
+    @Test
+    void shouldUninstallDisabledScenarioAndCleanPremiseReferences() {
+        AgentScenarioEntity scenario = state("sample", 1);
+        scenario.setEnabled(false);
+        AnalysisPremiseEntity referenced = new AnalysisPremiseEntity();
+        referenced.setVisibleScenarioCodes(new java.util.LinkedHashSet<>(Set.of("sample", "other")));
+        referenced.setScenarioContextValues(new java.util.LinkedHashMap<>(Map.of(
+                "sample", Map.of("environment", "prod"),
+                "other", Map.of("environment", "test"))));
+        AnalysisPremiseEntity untouched = new AnalysisPremiseEntity();
+        untouched.setVisibleScenarioCodes(new java.util.LinkedHashSet<>(Set.of("other")));
+        untouched.setScenarioContextValues(new java.util.LinkedHashMap<>());
+        when(repository.findById("sample")).thenReturn(Optional.of(scenario));
+        when(agentTaskRepository.existsByScenarioCodeAndStatusIn(any(), any())).thenReturn(false);
+        when(analysisPremiseRepository.findAll()).thenReturn(List.of(referenced, untouched));
+
+        service.uninstallState("sample");
+
+        assertThat(referenced.getVisibleScenarioCodes()).containsExactly("other");
+        assertThat(referenced.getScenarioContextValues()).containsOnlyKeys("other");
+        verify(analysisPremiseRepository).saveAll(List.of(referenced));
+        verify(repository).delete(scenario);
+    }
+
+    @Test
+    void shouldRejectUninstallWhenScenarioIsEnabled() {
+        AgentScenarioEntity scenario = state("sample", 1);
+        scenario.setEnabled(true);
+        when(repository.findById("sample")).thenReturn(Optional.of(scenario));
+
+        assertThatThrownBy(() -> service.uninstallState("sample"))
+                .hasMessageContaining("先停用场景");
+
+        verify(repository, never()).delete(any());
+        verify(analysisPremiseRepository, never()).findAll();
     }
 
     private ModuleDefinition definition(String code) {

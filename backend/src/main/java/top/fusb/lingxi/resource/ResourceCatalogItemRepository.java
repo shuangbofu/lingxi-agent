@@ -25,4 +25,6 @@ public interface ResourceCatalogItemRepository extends JpaRepository<ResourceCat
 
     long deleteByOwnerUserIdAndProviderCodeInAndExpiresAtLessThanEqual(
             Long ownerUserId, Set<String> providerCodes, LocalDateTime expiresAt);
+
+    long deleteByProviderCode(String providerCode);
 }

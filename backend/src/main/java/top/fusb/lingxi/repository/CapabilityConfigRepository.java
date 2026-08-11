@@ -18,4 +18,6 @@ public interface CapabilityConfigRepository extends JpaRepository<CapabilityConf
     Page<CapabilityConfigEntity> findByCapabilityCodeOrderByUpdatedAtDesc(String capabilityCode, Pageable pageable);
 
     List<CapabilityConfigEntity> findAllByEnabledTrueOrderByUpdatedAtDesc();
+
+    long deleteByCapabilityCode(String capabilityCode);
 }

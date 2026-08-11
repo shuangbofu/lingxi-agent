@@ -174,6 +174,44 @@ public class ScenarioPackageService {
         }
     }
 
+    /**
+     * 卸载外置场景包，并在状态清理失败时恢复安装目录。
+     *
+     * @param code 场景编码
+     * @return 无返回值
+     * @throws BizException 场景不是外置包、仍在使用或文件操作失败时抛出
+     */
+    public synchronized void uninstall(String code) {
+        ModuleDefinition definition = agentScenarioService.requireDefinition(code);
+        Path target = installedRoot().resolve(code).normalize();
+        if (!definition.isInstalled() || !target.startsWith(installedRoot())
+                || !target.equals(definition.getModuleDirectory()) || !Files.isDirectory(target)) {
+            throw new BizException(ErrorCode.PARAM_ERROR, ErrorSubCode.VALIDATION_FAILED,
+                    "该场景不是可卸载的外置安装包");
+        }
+
+        cleanupExpiredStaging();
+        Path uninstallDir = stagingRoot().resolve("uninstall-" + UUID.randomUUID()).normalize();
+        Path backup = uninstallDir.resolve(code).normalize();
+        try {
+            Files.createDirectories(uninstallDir);
+            moveDirectory(target, backup);
+            agentScenarioService.uninstallState(code);
+            deleteDirectoryQuietly(uninstallDir);
+            log.info("Uninstalled scenario package code={} path={}", code, target);
+        } catch (BizException exception) {
+            restoreBackup(backup, target);
+            deleteDirectoryQuietly(uninstallDir);
+            throw exception;
+        } catch (Exception exception) {
+            restoreBackup(backup, target);
+            deleteDirectoryQuietly(uninstallDir);
+            log.error("Uninstall scenario package failed code={} path={}", code, target, exception);
+            throw new BizException(ErrorCode.SYSTEM_ERROR, ErrorSubCode.DATA_LOAD_FAILED,
+                    "卸载场景失败，请稍后重试");
+        }
+    }
+
     private ModuleDefinition validatePackage(Path packageRoot) {
         ModuleDefinition definition = moduleDefinitionService.inspectScenarioDirectory(packageRoot);
         if (definition.getCode() == null || !definition.getCode().matches("[a-z0-9]+(?:-[a-z0-9]+)*")

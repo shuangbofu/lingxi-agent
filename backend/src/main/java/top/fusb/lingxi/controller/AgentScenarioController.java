@@ -14,6 +14,7 @@ import top.fusb.lingxi.entity.UserEntity;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -91,6 +92,20 @@ public class AgentScenarioController {
     @RequirePermission("DEFINITION_ADMIN")
     public AgentScenarioResponse installPackage(@PathVariable String stagingToken) {
         return scenarioPackageService.install(stagingToken);
+    }
+
+    /**
+     * 卸载外置场景安装包。
+     *
+     * @param code 场景编码
+     * @return 无响应数据
+     * @throws top.fusb.lingxi.exception.BizException 场景不可卸载或仍在使用时抛出
+     */
+    @DeleteMapping("/{code}")
+    @RequirePermission("DEFINITION_ADMIN")
+    public Void uninstall(@PathVariable String code) {
+        scenarioPackageService.uninstall(code);
+        return null;
     }
 
     @PutMapping("/order")

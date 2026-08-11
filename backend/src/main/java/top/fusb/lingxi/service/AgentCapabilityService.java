@@ -12,12 +12,19 @@ import top.fusb.lingxi.dto.AgentCapabilityStateUpdateRequest;
 import top.fusb.lingxi.dto.CapabilityCommandDefinition;
 import top.fusb.lingxi.dto.PageResult;
 import top.fusb.lingxi.entity.AgentCapabilityEntity;
+import top.fusb.lingxi.entity.AgentScenarioEntity;
+import top.fusb.lingxi.entity.AgentTaskEntity;
 import top.fusb.lingxi.enums.ErrorCode;
 import top.fusb.lingxi.enums.ErrorSubCode;
+import top.fusb.lingxi.enums.TaskStatus;
 import top.fusb.lingxi.exception.BizException;
+import top.fusb.lingxi.resource.ResourceCatalogItemRepository;
 import top.fusb.lingxi.runtime.api.event.RuntimeActionIcon;
 import top.fusb.lingxi.kit.DefinitionAssetUrlKit;
 import top.fusb.lingxi.repository.AgentCapabilityRepository;
+import top.fusb.lingxi.repository.AgentScenarioRepository;
+import top.fusb.lingxi.repository.AgentTaskRepository;
+import top.fusb.lingxi.repository.CapabilityConfigRepository;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -33,6 +40,10 @@ import java.util.Set;
 public class AgentCapabilityService {
 
     private final AgentCapabilityRepository agentCapabilityRepository;
+    private final AgentScenarioRepository agentScenarioRepository;
+    private final AgentTaskRepository agentTaskRepository;
+    private final CapabilityConfigRepository capabilityConfigRepository;
+    private final ResourceCatalogItemRepository resourceCatalogItemRepository;
     private final ModuleDefinitionService moduleDefinitionService;
     private final AgentDefinitionSupport definitionSupport;
 
@@ -143,6 +154,56 @@ public class AgentCapabilityService {
         return toResponse(definition, state);
     }
 
+    /**
+     * 删除已停用 Skill 的运行状态和私有配置，并从场景授权中移除该 Skill。
+     *
+     * @param code 已从安装目录移出的 Skill 编码
+     * @return 无返回值
+     * @throws BizException Skill 仍启用或存在未结束任务时抛出
+     */
+    @Transactional
+    public void uninstallState(String code) {
+        AgentCapabilityEntity entity = requireEntity(code);
+        if (entity.isEnabled()) {
+            throw new BizException(ErrorCode.PARAM_ERROR, ErrorSubCode.VALIDATION_FAILED,
+                    "请先停用能力再卸载");
+        }
+        boolean usedByActiveTask = agentTaskRepository.findByStatusIn(
+                        List.of(TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.WAITING_USER)).stream()
+                .map(AgentTaskEntity::getEnabledCapabilityCodes)
+                .filter(java.util.Objects::nonNull)
+                .anyMatch(codes -> codes.contains(code));
+        if (usedByActiveTask) {
+            throw new BizException(ErrorCode.PARAM_ERROR, ErrorSubCode.VALIDATION_FAILED,
+                    "能力仍被未结束任务使用，暂时不能卸载");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        List<AgentScenarioEntity> changedScenarios = new java.util.ArrayList<>();
+        for (AgentScenarioEntity scenario : agentScenarioRepository.findAllByOrderBySortOrderAsc()) {
+            if (scenario.getCapabilities() == null || !scenario.getCapabilities().contains(code)) {
+                continue;
+            }
+            Set<String> capabilities = new LinkedHashSet<>(scenario.getCapabilities());
+            capabilities.remove(code);
+            Map<String, Set<String>> commands = new LinkedHashMap<>(scenario.getCapabilityCommands() == null
+                    ? Map.of() : scenario.getCapabilityCommands());
+            commands.remove(code);
+            scenario.setCapabilities(capabilities);
+            scenario.setCapabilityCommands(commands);
+            scenario.setUpdatedAt(now);
+            changedScenarios.add(scenario);
+        }
+        if (!changedScenarios.isEmpty()) {
+            agentScenarioRepository.saveAll(changedScenarios);
+        }
+        long configCount = capabilityConfigRepository.deleteByCapabilityCode(code);
+        long resourceCount = resourceCatalogItemRepository.deleteByProviderCode(code);
+        agentCapabilityRepository.delete(entity);
+        log.info("Uninstalled Skill state code={} cleanedScenarioCount={} configCount={} resourceCount={}",
+                code, changedScenarios.size(), configCount, resourceCount);
+    }
+
     private Map<String, AgentCapabilityEntity> stateMap() {
         Map<String, AgentCapabilityEntity> result = new LinkedHashMap<>();
         agentCapabilityRepository.findAllByOrderByCodeAsc().forEach(state -> result.put(state.getCode(), state));
@@ -159,6 +220,7 @@ public class AgentCapabilityService {
                 definition.getIcon(), state == null ? null : state.getUpdatedAt()));
         response.setPromptText(moduleDefinitionService.readPrompt(definition));
         response.setEnabled(state != null && state.isEnabled());
+        response.setUninstallable(definition.isInstalled());
         response.setPackageVersion(definition.getVersion());
         response.setConfigParameters(parameters(definition.getConfig()));
         response.setParameters(parameters(definition.getParameters()));

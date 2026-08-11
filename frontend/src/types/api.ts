@@ -434,6 +434,7 @@ interface AgentDefinitionBase {
   iconUrl?: string;
   promptText: string;
   enabled: boolean;
+  uninstallable: boolean;
   parameters: AgentDefinitionParameter[];
   guides: AgentDefinitionGuide[];
   createdAt: string;

@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent } from 'react';
-import { Button, Descriptions, Empty, Modal, Pagination, Segmented, Select, Spin, Switch, Table, Tabs, Tag, Tooltip, message } from 'antd';
+import { Button, Descriptions, Empty, Modal, Pagination, Popconfirm, Segmented, Select, Spin, Switch, Table, Tabs, Tag, Tooltip, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { ArrowClockwise, CaretLeft, CheckCircle, DotsSixVertical, Eye, GearSix, Package as PackageIcon, Power, Prohibit, SquaresFour, Table as TableIcon } from '@phosphor-icons/react';
+import { ArrowClockwise, CaretLeft, CheckCircle, DotsSixVertical, Eye, GearSix, Package as PackageIcon, Power, Prohibit, SquaresFour, Table as TableIcon, Trash } from '@phosphor-icons/react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   getCapability,
@@ -11,6 +11,8 @@ import {
   pageAllCapabilities,
   pageAllScenarios,
   reorderScenarios,
+  uninstallCapability,
+  uninstallScenario,
   updateCapability,
   updateScenario,
 } from '../api/lingxi';
@@ -59,6 +61,7 @@ function DefinitionListPage({ kind, embedded }: { kind: DefinitionKind; embedded
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [deletingCode, setDeletingCode] = useState<string>();
   const [reordering, setReordering] = useState(false);
   const [draggedId, setDraggedId] = useState<string>();
   const [capabilityModules, setCapabilityModules] = useState<AgentCapability[]>([]);
@@ -271,6 +274,17 @@ function DefinitionListPage({ kind, embedded }: { kind: DefinitionKind; embedded
     await loadDefinitions(page);
   }
 
+  async function uninstall(item: DefinitionItem) {
+    setDeletingCode(item.code);
+    try {
+      await uninstallDefinition(kind, item.code);
+      message.success(`${meta.name}已卸载`);
+      await loadDefinitions(items.length === 1 && page > 1 ? page - 1 : page);
+    } finally {
+      setDeletingCode(undefined);
+    }
+  }
+
   function changeViewMode(nextMode: DefinitionViewMode) {
     setViewMode(nextMode);
     localStorage.setItem(`definition-view-mode-${kind}`, nextMode);
@@ -315,7 +329,9 @@ function DefinitionListPage({ kind, embedded }: { kind: DefinitionKind; embedded
         const capability = kind === 'capability' ? item as AgentCapability : undefined;
         return (
           <AppTag tone="blue">
-            {`安装${(capability?.packageVersion || (item as AgentScenario).packageVersion) ? ` v${capability?.packageVersion || (item as AgentScenario).packageVersion}` : ''}`}
+            {item.uninstallable
+              ? `安装${(capability?.packageVersion || (item as AgentScenario).packageVersion) ? ` v${capability?.packageVersion || (item as AgentScenario).packageVersion}` : ''}`
+              : '内置'}
           </AppTag>
         );
       },
@@ -324,7 +340,7 @@ function DefinitionListPage({ kind, embedded }: { kind: DefinitionKind; embedded
     { title: '更新时间', dataIndex: 'updatedAt', width: 170, render: formatTime },
     {
       title: '操作',
-      width: kind === 'scenario' ? 210 : 150,
+      width: kind === 'scenario' ? 250 : 190,
       fixed: 'right',
       render: (_, item) => (
         <div className="definition-table-actions">
@@ -348,6 +364,21 @@ function DefinitionListPage({ kind, embedded }: { kind: DefinitionKind; embedded
             <Tooltip title="接入配置">
               <Button size="small" icon={<GearSix size={14} weight="fill" />} aria-label={`${item.name}接入配置`} onClick={() => setConfigCapability(item as AgentCapability)} />
             </Tooltip>
+          ) : null}
+          {item.uninstallable ? (
+            <Popconfirm
+              title={`卸载${meta.name}“${item.name}”？`}
+              description={kind === 'capability' ? '安装包、接入配置和场景授权将被删除。' : '安装包及分析情境中的引用将被删除。'}
+              okText="卸载"
+              cancelText="取消"
+              okButtonProps={{ danger: true }}
+              disabled={item.enabled}
+              onConfirm={() => uninstall(item)}
+            >
+              <Tooltip title={item.enabled ? `请先停用${meta.name}` : `卸载${meta.name}`}>
+                <Button danger size="small" disabled={item.enabled} loading={deletingCode === item.code} icon={<Trash size={14} weight="fill" />} aria-label={`卸载${item.name}`} />
+              </Tooltip>
+            </Popconfirm>
           ) : null}
         </div>
       ),
@@ -392,6 +423,8 @@ function DefinitionListPage({ kind, embedded }: { kind: DefinitionKind; embedded
                     capabilityNameMap={capabilityNameMap}
                     onConfig={setConfigCapability}
                     onToggleEnabled={toggleEnabled}
+                    onUninstall={uninstall}
+                    deleting={deletingCode === item.code}
                     onRuntimeConfig={(scenario) => setRuntimeConfigScenario(scenario)}
                     reorderable={kind === 'scenario'}
                     dragging={draggedId === item.code}
@@ -627,6 +660,8 @@ function DefinitionCard({
   capabilityNameMap,
   onConfig,
   onToggleEnabled,
+  onUninstall,
+  deleting = false,
   onRuntimeConfig,
   reorderable = false,
   dragging = false,
@@ -643,6 +678,8 @@ function DefinitionCard({
   capabilityNameMap: Map<string, string>;
   onConfig: (capability: AgentCapability) => void;
   onToggleEnabled: (item: DefinitionItem) => Promise<void>;
+  onUninstall: (item: DefinitionItem) => Promise<void>;
+  deleting?: boolean;
   onRuntimeConfig: (scenario: AgentScenario) => void;
   reorderable?: boolean;
   dragging?: boolean;
@@ -723,7 +760,9 @@ function DefinitionCard({
         <div className="flex shrink-0 gap-1">
           <EnabledTag enabled={item.enabled} />
           <AppTag tone="blue">
-            {`安装${((item as AgentCapability).packageVersion || (item as AgentScenario).packageVersion) ? ` v${(item as AgentCapability).packageVersion || (item as AgentScenario).packageVersion}` : ''}`}
+            {item.uninstallable
+              ? `安装${((item as AgentCapability).packageVersion || (item as AgentScenario).packageVersion) ? ` v${(item as AgentCapability).packageVersion || (item as AgentScenario).packageVersion}` : ''}`
+              : '内置'}
           </AppTag>
         </div>
       </div>
@@ -753,6 +792,19 @@ function DefinitionCard({
           {kind === 'capability' && (item as AgentCapability).configParameters?.length ? (
             <Button size="small" icon={<GearSix size={14} weight="fill" />} onClick={() => onConfig(item as AgentCapability)}>接入配置</Button>
           ) : null}
+          {item.uninstallable ? (
+            <Popconfirm
+              title={`卸载${kind === 'scenario' ? '场景' : '能力'}“${item.name}”？`}
+              description={kind === 'capability' ? '安装包、接入配置和场景授权将被删除。' : '安装包及分析情境中的引用将被删除。'}
+              okText="卸载"
+              cancelText="取消"
+              okButtonProps={{ danger: true }}
+              disabled={item.enabled}
+              onConfirm={() => onUninstall(item)}
+            >
+              <Button danger size="small" disabled={item.enabled} loading={deleting} icon={<Trash size={14} weight="fill" />} title={item.enabled ? `请先停用${kind === 'scenario' ? '场景' : '能力'}` : `卸载${kind === 'scenario' ? '场景' : '能力'}`}>卸载</Button>
+            </Popconfirm>
+          ) : null}
         </div>
       </div>
     </article>
@@ -769,6 +821,7 @@ function DefinitionDetailPage({ kind }: { kind: DefinitionKind }) {
   const [capabilityModules, setCapabilityModules] = useState<AgentCapability[]>([]);
   const [configOpen, setConfigOpen] = useState(false);
   const [runtimeConfigOpen, setRuntimeConfigOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadCapabilityModules();
@@ -801,6 +854,20 @@ function DefinitionDetailPage({ kind }: { kind: DefinitionKind }) {
     message.success(item.enabled ? `${meta.name}已停用` : `${meta.name}已启用`);
   }
 
+  async function uninstall() {
+    if (!code || !item) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      await uninstallDefinition(kind, code);
+      message.success(`${meta.name}已卸载`);
+      navigate(listPath, { replace: true });
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   const title = `查看${meta.name}`;
 
   return (
@@ -820,6 +887,19 @@ function DefinitionDetailPage({ kind }: { kind: DefinitionKind }) {
             ) : null}
             {item ? (
               <Button icon={<Power size={16} weight="fill" />} onClick={toggleEnabled}>{item.enabled ? '停用' : '启用'}</Button>
+            ) : null}
+            {item?.uninstallable ? (
+              <Popconfirm
+                title={`卸载${meta.name}“${item.name}”？`}
+                description={kind === 'capability' ? '安装包、接入配置和场景授权将被删除。' : '安装包及分析情境中的引用将被删除。'}
+                okText="卸载"
+                cancelText="取消"
+                okButtonProps={{ danger: true }}
+                disabled={item.enabled}
+                onConfirm={uninstall}
+              >
+                <Button danger disabled={item.enabled} loading={deleting} icon={<Trash size={16} weight="fill" />}>卸载</Button>
+              </Popconfirm>
             ) : null}
           </div>
         </div>
@@ -872,7 +952,9 @@ function DefinitionReadonlyView({ kind, item, capabilityModules }: { kind: Defin
             <Descriptions.Item label="编码">{item.code}</Descriptions.Item>
             {scenarioItem ? <Descriptions.Item label="类型">{scenarioItem.scenario}</Descriptions.Item> : null}
             <Descriptions.Item label="状态">{item.enabled ? '启用' : '停用'}</Descriptions.Item>
-            <Descriptions.Item label="来源">安装目录</Descriptions.Item>
+            <Descriptions.Item label="来源">
+              {item.uninstallable ? '外置安装包' : kind === 'scenario' ? '内置场景' : '内置能力'}
+            </Descriptions.Item>
             <Descriptions.Item label="更新时间">{formatTime(item.updatedAt)}</Descriptions.Item>
             {scenarioItem ? (
               <>
@@ -1087,4 +1169,12 @@ async function updateDefinition(kind: DefinitionKind, code: string,
   return kind === 'scenario'
     ? updateScenario(code, payload as AgentScenarioStateUpdateRequest)
     : updateCapability(code, payload as AgentCapabilityStateUpdateRequest);
+}
+
+async function uninstallDefinition(kind: DefinitionKind, code: string): Promise<void> {
+  if (kind === 'scenario') {
+    await uninstallScenario(code);
+  } else {
+    await uninstallCapability(code);
+  }
 }

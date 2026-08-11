@@ -43,6 +43,8 @@ public interface AgentTaskRepository extends JpaRepository<AgentTaskEntity, Long
     @EntityGraph(attributePaths = {"premise", "owner"})
     List<AgentTaskEntity> findByStatusOrderByCreatedAtAsc(TaskStatus status);
 
+    List<AgentTaskEntity> findByStatusIn(Collection<TaskStatus> statuses);
+
     @EntityGraph(attributePaths = {"premise", "owner"})
     Page<AgentTaskEntity> findAllByOwnerIdAndStatusOrderByCreatedAtDesc(Long ownerId, TaskStatus status, Pageable pageable);
 

@@ -191,6 +191,44 @@ public class CapabilityPackageService {
         }
     }
 
+    /**
+     * 卸载外置 Skill 包，并在状态清理失败时恢复安装目录。
+     *
+     * @param code Skill 编码
+     * @return 无返回值
+     * @throws BizException Skill 是内置能力、仍在使用或文件操作失败时抛出
+     */
+    public synchronized void uninstall(String code) {
+        ModuleDefinition definition = agentCapabilityService.requireDefinition(code);
+        Path target = installedRoot().resolve(code).normalize();
+        if (!definition.isInstalled() || !target.startsWith(installedRoot())
+                || !target.equals(definition.getModuleDirectory()) || !Files.isDirectory(target)) {
+            throw new BizException(ErrorCode.PARAM_ERROR, ErrorSubCode.VALIDATION_FAILED,
+                    "内置能力不能卸载");
+        }
+
+        cleanupExpiredStaging();
+        Path uninstallDir = stagingRoot().resolve("uninstall-" + UUID.randomUUID()).normalize();
+        Path backup = uninstallDir.resolve(code).normalize();
+        try {
+            Files.createDirectories(uninstallDir);
+            moveDirectory(target, backup);
+            agentCapabilityService.uninstallState(code);
+            deleteDirectoryQuietly(uninstallDir);
+            log.info("Uninstalled Skill package code={} path={}", code, target);
+        } catch (BizException exception) {
+            restoreBackup(backup, target);
+            deleteDirectoryQuietly(uninstallDir);
+            throw exception;
+        } catch (Exception exception) {
+            restoreBackup(backup, target);
+            deleteDirectoryQuietly(uninstallDir);
+            log.error("Uninstall Skill package failed code={} path={}", code, target, exception);
+            throw new BizException(ErrorCode.SYSTEM_ERROR, ErrorSubCode.DATA_LOAD_FAILED,
+                    "卸载能力失败，请稍后重试");
+        }
+    }
+
     private PackageInspection validatePackage(Path packageRoot) throws IOException {
         ModuleDefinition definition = moduleDefinitionService.inspectCapabilityDirectory(packageRoot);
         if (definition.getCode() == null || !definition.getCode().matches("[a-z0-9]+(?:-[a-z0-9]+)*")

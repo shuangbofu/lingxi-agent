@@ -216,6 +216,10 @@ export function updateScenario(code: string, data: AgentScenarioStateUpdateReque
   return request.put<AgentScenario, AgentScenario>(`/api/scenarios/${code}`, data);
 }
 
+export function uninstallScenario(code: string) {
+  return request.delete<void, void>(`/api/scenarios/${code}`);
+}
+
 export function reorderScenarios(codes: string[]) {
   return request.put<AgentScenario[], AgentScenario[]>('/api/scenarios/order', { codes });
 }
@@ -236,6 +240,10 @@ export function getCapability(code: string) {
 
 export function updateCapability(code: string, data: AgentCapabilityStateUpdateRequest) {
   return request.put<AgentCapability, AgentCapability>(`/api/capabilities/${code}`, data);
+}
+
+export function uninstallCapability(code: string) {
+  return request.delete<void, void>(`/api/capabilities/${code}`);
 }
 
 export function inspectCapabilityPackage(file: File) {

@@ -15,6 +15,7 @@ public class AgentCapabilityResponse {
     private String iconUrl;
     private String promptText;
     private boolean enabled;
+    private boolean uninstallable;
     private String packageVersion;
     private List<AgentDefinitionParameterResponse> configParameters;
     private List<AgentDefinitionParameterResponse> parameters;

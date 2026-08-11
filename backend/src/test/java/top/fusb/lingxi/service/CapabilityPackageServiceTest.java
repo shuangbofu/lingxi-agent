@@ -2,6 +2,7 @@ package top.fusb.lingxi.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import top.fusb.lingxi.config.LingxiProperties;
+import top.fusb.lingxi.definition.ModuleDefinition;
 import top.fusb.lingxi.dto.AgentCapabilityResponse;
 import top.fusb.lingxi.dto.CapabilityPackageInspectionResponse;
 import top.fusb.lingxi.enums.ErrorSubCode;
@@ -25,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -137,6 +139,60 @@ class CapabilityPackageServiceTest {
                     assertThat(error.getMessage()).contains("commands[0].icon 不支持：STOP")
                             .doesNotContain("Cannot deserialize", "RuntimeActionIcon", "through reference chain");
                 });
+    }
+
+    @Test
+    void shouldUninstallExternalCapabilityPackage() throws Exception {
+        Path target = installedCapability("sample-capability");
+        when(agentCapabilityService.requireDefinition("sample-capability"))
+                .thenReturn(installedDefinition("sample-capability", target));
+
+        service.uninstall("sample-capability");
+
+        assertThat(target).doesNotExist();
+        verify(agentCapabilityService).uninstallState("sample-capability");
+    }
+
+    @Test
+    void shouldRestoreCapabilityPackageWhenStateCleanupFails() throws Exception {
+        Path target = installedCapability("sample-capability");
+        when(agentCapabilityService.requireDefinition("sample-capability"))
+                .thenReturn(installedDefinition("sample-capability", target));
+        doThrow(new BizException(top.fusb.lingxi.enums.ErrorCode.PARAM_ERROR,
+                ErrorSubCode.VALIDATION_FAILED, "能力仍被未结束任务使用"))
+                .when(agentCapabilityService).uninstallState("sample-capability");
+
+        assertThatThrownBy(() -> service.uninstall("sample-capability"))
+                .hasMessageContaining("未结束任务");
+
+        assertThat(target.resolve("SKILL.md")).isRegularFile();
+    }
+
+    @Test
+    void shouldRejectUninstallForBuiltInCapability() {
+        ModuleDefinition definition = new ModuleDefinition();
+        definition.setCode("built-in");
+        definition.setInstalled(false);
+        when(agentCapabilityService.requireDefinition("built-in")).thenReturn(definition);
+
+        assertThatThrownBy(() -> service.uninstall("built-in"))
+                .hasMessageContaining("内置能力不能卸载");
+    }
+
+    private Path installedCapability(String code) throws Exception {
+        Path target = Path.of(properties.getDefinitions().getInstalledSkillDir())
+                .toAbsolutePath().normalize().resolve(code);
+        Files.createDirectories(target);
+        Files.writeString(target.resolve("SKILL.md"), "---\nname: " + code + "\n---\n");
+        return target;
+    }
+
+    private ModuleDefinition installedDefinition(String code, Path target) {
+        ModuleDefinition definition = new ModuleDefinition();
+        definition.setCode(code);
+        definition.setInstalled(true);
+        definition.setModuleDirectory(target);
+        return definition;
     }
 
     private Map<String, String> validPackageEntries() {
