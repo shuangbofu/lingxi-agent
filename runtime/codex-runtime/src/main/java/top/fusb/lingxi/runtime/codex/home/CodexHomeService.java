@@ -29,8 +29,7 @@ public class CodexHomeService {
     public static final String PROVIDER_NAME = "workbench";
     public static final String DEEPSEEK_PROVIDER_NAME = "deepseek";
     public static final String DEEPSEEK_PROVIDER_TYPE = "DEEPSEEK";
-    public static final String DEEPSEEK_V4_FLASH_MODEL = "deepseek-v4-flash";
-    private static final String DEEPSEEK_MODEL_CATALOG_RESOURCE = "/codex/deepseek-v4-flash-models.json";
+    private static final String DEEPSEEK_MODEL_CATALOG_RESOURCE = "/codex/deepseek-models.json";
     private static final String MCP_PAGINATION_PROXY_RESOURCE = "/codex/mcp-pagination-proxy.py";
     private static final String COMMAND_CATALOG_DIR = "command-catalog";
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -574,8 +573,28 @@ public class CodexHomeService {
     }
 
     private void validateCodexModel(RuntimeModelConfig modelConfig) {
-        if (isDeepSeek(modelConfig) && !DEEPSEEK_V4_FLASH_MODEL.equals(modelConfig.model().trim())) {
-            throw new IllegalStateException("DeepSeek Codex 当前仅支持 deepseek-v4-flash 模型");
+        if (!isDeepSeek(modelConfig)) {
+            return;
+        }
+        try (var input = CodexHomeService.class.getResourceAsStream(DEEPSEEK_MODEL_CATALOG_RESOURCE)) {
+            if (input == null) {
+                throw new IllegalStateException("DeepSeek Codex 模型目录资源缺失");
+            }
+            JsonNode models = objectMapper.readTree(input).path("models");
+            boolean supported = false;
+            if (models.isArray()) {
+                for (JsonNode candidate : models) {
+                    if (modelConfig.model().trim().equals(candidate.path("slug").asText())) {
+                        supported = true;
+                        break;
+                    }
+                }
+            }
+            if (!supported) {
+                throw new IllegalStateException("DeepSeek Codex 模型不在模型目录中：" + modelConfig.model().trim());
+            }
+        } catch (java.io.IOException exception) {
+            throw new IllegalStateException("读取 DeepSeek Codex 模型目录失败", exception);
         }
     }
 

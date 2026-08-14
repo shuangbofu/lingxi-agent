@@ -442,12 +442,6 @@ public class ModelCatalogService {
         String instructionPrompt = TextKit.blankToNull(request.getInstructionPrompt());
         validatePrompt(instructionPrompt, "模型附加提示词不能超过 10000 个字符");
         RuntimeModelProtocol protocol = normalizeProtocol(request.getProtocol(), providerType, name);
-        if ("DEEPSEEK".equalsIgnoreCase(providerType.value())
-                && protocol == RuntimeModelProtocol.RESPONSES
-                && !"deepseek-v4-flash".equals(model)) {
-            throw new BizException(ErrorCode.PARAM_ERROR, ErrorSubCode.VALIDATION_FAILED,
-                    "DeepSeek Responses 协议当前仅支持 deepseek-v4-flash 模型");
-        }
         entity.setProvider(provider);
         entity.setName(name);
         entity.setDescription(TextKit.blankToNull(request.getDescription()));

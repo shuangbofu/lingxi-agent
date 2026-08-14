@@ -88,22 +88,25 @@ class ModelCatalogServiceTest {
     }
 
     @Test
-    void shouldRejectUnsupportedDeepSeekResponsesModel() {
+    void shouldAllowDeepSeekProResponsesModel() {
         ModelProviderEntity deepSeek = provider("deepseek-provider", user);
         deepSeek.setProviderType("DEEPSEEK");
         when(providerRepository.findByIdAndOwnerId("deepseek-provider", 7L))
                 .thenReturn(Optional.of(deepSeek));
+        when(modelRepository.save(any(ModelProfileEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
         RuntimeModelProfileRequest request = new RuntimeModelProfileRequest();
-        request.setName("DeepSeek Chat");
+        request.setName("DeepSeek V4 Pro");
         request.setProviderId("deepseek-provider");
-        request.setModel("deepseek-chat");
+        request.setModel("deepseek-v4-pro");
         request.setProtocol(RuntimeModelProtocol.RESPONSES);
-        request.setContextWindowTokens(128_000);
+        request.setContextWindowTokens(1_048_576);
         request.setEnabled(true);
 
-        assertThatThrownBy(() -> service.createModel(ModelConfigScope.PERSONAL, request, user))
-                .isInstanceOf(BizException.class)
-                .hasMessage("DeepSeek Responses 协议当前仅支持 deepseek-v4-flash 模型");
+        RuntimeModelProfileResponse response = service.createModel(ModelConfigScope.PERSONAL, request, user);
+
+        assertThat(response.getModel()).isEqualTo("deepseek-v4-pro");
+        assertThat(response.getProtocol()).isEqualTo(RuntimeModelProtocol.RESPONSES);
     }
 
     @Test

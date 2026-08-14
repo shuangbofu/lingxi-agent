@@ -10,6 +10,7 @@ import top.fusb.lingxi.runtime.codex.config.CodexSkillAccessMode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -48,7 +49,7 @@ class CodexHomeServiceTest {
     }
 
     @Test
-    void writesDeepSeekProviderAndOfficialModelCatalog() throws Exception {
+    void writesDeepSeekProProviderAndOfficialModelCatalog() throws Exception {
         CodexHomeService service = new CodexHomeService() {
             @Override
             public Path conversationHome(Long conversationRootTaskId) {
@@ -56,24 +57,27 @@ class CodexHomeServiceTest {
             }
         };
         RuntimeModelConfig modelConfig = new RuntimeModelConfig(
-                "sk-test-key", "SYSTEM", "https://api.deepseek.com/v1", "deepseek-v4-flash",
+                "sk-test-key", "SYSTEM", "https://api.deepseek.com/v1", "deepseek-v4-pro",
                 "high", 1_048_576, RuntimeModelProtocol.RESPONSES, null,
                 false, null, "DEEPSEEK");
 
         Path home = service.prepare(18L, 18L, modelConfig);
+        String escapedModelCatalogPath = home.resolve("models.json").toAbsolutePath().toString()
+                .replace("\\", "\\\\");
 
         assertThat(Files.readString(home.resolve("config.toml")))
                 .contains(
                         "model_provider = \"deepseek\"",
                         "preferred_auth_method = \"apikey\"",
                         "forced_login_method = \"api\"",
-                        "model_catalog_json = \"" + home.resolve("models.json").toAbsolutePath() + "\"",
+                        "model_catalog_json = \"" + escapedModelCatalogPath + "\"",
                         "base_url = \"https://api.deepseek.com\"",
                         "wire_api = \"responses\"",
                         "experimental_bearer_token = \"sk-test-key\"")
                 .doesNotContain("requires_openai_auth", "model_context_window");
         assertThat(Files.readString(home.resolve("models.json")))
-                .contains("\"slug\": \"deepseek-v4-flash\"", "\"context_window\": 1048576");
+                .contains("\"slug\": \"deepseek-v4-flash\"", "\"slug\": \"deepseek-v4-pro\"",
+                        "\"context_window\": 1048576");
         assertThat(home.resolve("auth.json")).doesNotExist();
     }
 
@@ -92,7 +96,7 @@ class CodexHomeServiceTest {
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.prepare(19L, 19L, modelConfig))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("当前仅支持 deepseek-v4-flash");
+                .hasMessageContaining("模型不在模型目录中：deepseek-chat");
     }
 
     @Test
@@ -161,8 +165,8 @@ class CodexHomeServiceTest {
         assertThat(home.resolve("skills/demo/references/usage.md")).isRegularFile();
         assertThat(home.resolve("skills/demo/scripts")).doesNotExist();
         assertThat(home.resolve("skills/demo/lingxi.json")).doesNotExist();
-        assertThat(home.resolve("command-catalog/resource-memory/guide.md"))
-                .hasContent("# 原生模式平台说明");
+        assertThat(Files.readString(home.resolve("command-catalog/resource-memory/guide.md"),
+                StandardCharsets.UTF_8)).isEqualTo("# 原生模式平台说明");
     }
 
     @Test
@@ -192,8 +196,8 @@ class CodexHomeServiceTest {
         assertThat(home.resolve("command-catalog/demo/guide.md")).isRegularFile();
         assertThat(home.resolve("command-catalog/demo/references/usage.md")).isRegularFile();
         assertThat(home.resolve("command-catalog/demo/scripts")).doesNotExist();
-        assertThat(home.resolve("command-catalog/resource-memory/guide.md")).hasContent(
-                "# 资源记忆\n\nUse resource-memory search.");
+        assertThat(Files.readString(home.resolve("command-catalog/resource-memory/guide.md"),
+                StandardCharsets.UTF_8)).isEqualTo("# 资源记忆\n\nUse resource-memory search.");
         assertThat(home.resolve("skills")).doesNotExist();
     }
 }
