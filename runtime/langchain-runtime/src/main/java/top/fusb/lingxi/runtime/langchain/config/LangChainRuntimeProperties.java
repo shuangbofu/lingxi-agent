@@ -10,7 +10,7 @@ import java.time.Duration;
 public class LangChainRuntimeProperties {
 
     private long defaultTimeoutSeconds = 900L;
-    private long timeFinalizationGraceSeconds = 30L;
+    private long timeFinalizationGraceSeconds = 120L;
     private int toolConcurrency = 8;
     private int maxToolCallsPerExecution = 96;
     private int maxEvidenceReadsPerExecution = 48;

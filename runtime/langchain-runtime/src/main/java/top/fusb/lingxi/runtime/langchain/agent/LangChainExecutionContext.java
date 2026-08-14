@@ -337,7 +337,7 @@ public final class LangChainExecutionContext {
     }
 
     /**
-     * 在完整执行硬截止前主动进入收尾模式，后续模型请求不再携带工具定义。
+     * 在探索阶段达到时间上限时进入收尾模式，后续模型请求不再携带工具定义。
      *
      * @return 本次调用是否首次将执行切换到收尾模式
      */
@@ -395,13 +395,22 @@ public final class LangChainExecutionContext {
         if (!cancelled.compareAndSet(false, true)) {
             return false;
         }
+        stopCurrentWork();
+        return true;
+    }
+
+    /**
+     * 停止当前模型流、工具调用和子进程，但不把执行标记为用户取消。
+     *
+     * @return 无返回值
+     */
+    public void stopCurrentWork() {
         StreamingHandle handle = streamingHandle.getAndSet(null);
         if (handle != null && !handle.isCancelled()) {
             handle.cancel();
         }
         toolInvocations.values().forEach(ToolInvocation::cancelFromExecution);
         processes.forEach(LangChainProcessRunner::destroy);
-        return true;
     }
 
     private void notifyUsage() {

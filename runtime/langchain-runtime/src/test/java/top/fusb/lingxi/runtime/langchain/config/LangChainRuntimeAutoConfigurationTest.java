@@ -36,8 +36,11 @@ class LangChainRuntimeAutoConfigurationTest {
     @Test
     void bindsRuntimeOverridesWithoutDefaultsPropertySource() {
         contextRunner.withPropertyValues("lingxi.langchain.tool-concurrency=3")
-                .run(context -> assertThat(context.getBean(LangChainRuntimeProperties.class).getToolConcurrency())
-                        .isEqualTo(3));
+                .run(context -> {
+                    LangChainRuntimeProperties properties = context.getBean(LangChainRuntimeProperties.class);
+                    assertThat(properties.getToolConcurrency()).isEqualTo(3);
+                    assertThat(properties.getTimeFinalizationGraceSeconds()).isEqualTo(120L);
+                });
     }
 
     @Test

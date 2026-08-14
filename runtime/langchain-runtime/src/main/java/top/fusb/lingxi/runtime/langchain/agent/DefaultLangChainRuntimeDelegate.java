@@ -94,6 +94,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -186,7 +187,7 @@ public class DefaultLangChainRuntimeDelegate implements LangChainRuntimeDelegate
      * @param listener Runtime 事件与用量监听器
      * @return 执行结果、最终回答、会话引用和 Token 用量
      * @throws IllegalArgumentException 请求、模型配置或工作区无效时抛出
-     * @throws IllegalStateException 模型调用失败、执行超时或 Agent 未返回结果时抛出
+     * @throws IllegalStateException 模型调用失败或 Agent 未返回结果时抛出
      */
     @Override
     public RuntimeExecutionResult execute(RuntimeExecutionRequest request, RuntimeEventListener listener) {
@@ -194,6 +195,8 @@ public class DefaultLangChainRuntimeDelegate implements LangChainRuntimeDelegate
         long timeoutSeconds = request.timeoutSeconds() > 0
                 ? request.timeoutSeconds() : properties.getDefaultTimeoutSeconds();
         long executionDeadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSeconds);
+        long finalizationDeadlineNanos = finalizationDeadlineNanos(
+                executionDeadlineNanos, properties.getTimeFinalizationGraceSeconds());
         Path workspace;
         try {
             workspace = Path.of(request.workspace().executionRoot()).toAbsolutePath().normalize().toRealPath();
@@ -248,6 +251,7 @@ public class DefaultLangChainRuntimeDelegate implements LangChainRuntimeDelegate
 
         AtomicReference<ChatResponse> finalResponse = new AtomicReference<>();
         AtomicReference<Throwable> executionError = new AtomicReference<>();
+        AtomicBoolean timeFinalizing = new AtomicBoolean();
         StringBuffer stdout = new StringBuffer();
         StringBuffer roundText = new StringBuffer();
         StringBuffer roundThinking = new StringBuffer();
@@ -406,16 +410,29 @@ public class DefaultLangChainRuntimeDelegate implements LangChainRuntimeDelegate
 
             TokenStream stream = agent.chat(request.prompt());
             stream.onPartialResponse(delta -> {
+                        if (timeFinalizing.get()) {
+                            return;
+                        }
                         activityCoordinator.modelTextReceived();
                         roundText.append(delta);
                         if (!request.finalResponseRequired()) {
                             context.emitMessageDelta(new RuntimeMessageDelta("round-" + modelRound.get(), delta));
                         }
                     })
-                    .onPartialThinking(partial -> appendThinking(
-                            context, roundThinking, partial, modelRound.get()))
-                    .onPartialToolCall(ignored -> activityCoordinator.modelToolCallReceived())
+                    .onPartialThinking(partial -> {
+                        if (!timeFinalizing.get()) {
+                            appendThinking(context, roundThinking, partial, modelRound.get());
+                        }
+                    })
+                    .onPartialToolCall(ignored -> {
+                        if (!timeFinalizing.get()) {
+                            activityCoordinator.modelToolCallReceived();
+                        }
+                    })
                     .onIntermediateResponse(response -> {
+                        if (timeFinalizing.get()) {
+                            return;
+                        }
                         emitModelReasoning(context, response, roundThinking, modelRound.get());
                         String progress = responseText(response, roundText);
                         boolean messageEmitted = !progress.isBlank();
@@ -434,6 +451,10 @@ public class DefaultLangChainRuntimeDelegate implements LangChainRuntimeDelegate
                     .onToolExecuted(event -> activityCoordinator.toolCompleted(
                             toolExecutedEvent(event, capabilityRegistry, context)))
                     .onCompleteResponse(response -> {
+                        if (timeFinalizing.get()) {
+                            completed.countDown();
+                            return;
+                        }
                         finalResponse.set(response);
                         emitModelReasoning(context, response, roundThinking, modelRound.get());
                         String answer = response.aiMessage() == null || response.aiMessage().text() == null
@@ -448,6 +469,10 @@ public class DefaultLangChainRuntimeDelegate implements LangChainRuntimeDelegate
                         completed.countDown();
                     })
                     .onError(error -> {
+                        if (timeFinalizing.get()) {
+                            completed.countDown();
+                            return;
+                        }
                         activityCoordinator.executionFailed();
                         executionError.set(error);
                         completed.countDown();
@@ -456,19 +481,40 @@ public class DefaultLangChainRuntimeDelegate implements LangChainRuntimeDelegate
             stream.start();
 
             long remainingNanos = executionDeadlineNanos - System.nanoTime();
-            long finalizationGraceNanos = TimeUnit.SECONDS.toNanos(properties.getTimeFinalizationGraceSeconds());
-            long explorationNanos = Math.max(0L, remainingNanos - finalizationGraceNanos);
-            boolean finished = explorationNanos > 0L
-                    && completed.await(explorationNanos, TimeUnit.NANOSECONDS);
+            boolean finished = remainingNanos > 0L
+                    && completed.await(remainingNanos, TimeUnit.NANOSECONDS);
             if (!finished && completed.getCount() > 0L) {
                 context.enterTimeFinalization();
-                remainingNanos = executionDeadlineNanos - System.nanoTime();
-                finished = remainingNanos > 0L && completed.await(remainingNanos, TimeUnit.NANOSECONDS);
-            }
-            if (!finished && completed.getCount() > 0L) {
-                activityCoordinator.executionFailed();
-                context.cancel();
-                throw new IllegalStateException("任务执行超时");
+                timeFinalizing.set(true);
+                activityCoordinator.timeFinalizationStarted();
+                context.stopCurrentWork();
+                chatMemoryStore.completeInterruptedToolCalls(request.executionId());
+                String draft = timeoutAnswer(stdout.toString(), roundText.toString());
+                int finalRound = modelRound.incrementAndGet();
+                LangChainActivityEventCoordinator timeoutFinalizationCoordinator =
+                        new LangChainActivityEventCoordinator(
+                                request.eventNamespace(), context::emit, "time-finalization-request", contextBudget,
+                                request.taskInstructions(), request.mcpInstructions(), requestSnapshotRoot, true);
+                String answer = finalizeResponse(request, draft, context, timeoutFinalizationCoordinator, modelCallPolicy,
+                        finalRound, finalizationDeadlineNanos, true);
+                if (context.isCancelled()) {
+                    return cancelledResult(stdout.toString(), context);
+                }
+                answer = markTimeLimitedResult(answer);
+                appendTimeoutFinalResponse(chatMemoryStore, request.executionId(), answer);
+                appendLine(stdout, answer);
+                context.emit(agentMessage(answer, finalRound, true));
+                timeoutFinalizationCoordinator.finalResponseHandled(true);
+                RuntimeUsage usage = context.usage();
+                RuntimeSessionRef session = session(request, chatMemoryStore.memoryFile());
+                if (usage != null) {
+                    usageByExecution.put(request.executionId(), usage);
+                }
+                log.info("LangChain execution reached time limit and saved partial result executionId={} "
+                                + "model={} rounds={}",
+                        request.executionId(), request.modelConfig().model(), finalRound);
+                return new RuntimeExecutionResult(
+                        0, stdout.toString(), "", answer, session, usage, LocalDateTime.now());
             }
             if (context.isCancelled()) {
                 return cancelledResult(stdout.toString(), context);
@@ -485,8 +531,10 @@ public class DefaultLangChainRuntimeDelegate implements LangChainRuntimeDelegate
             String answer = draft;
             if (request.finalResponseRequired()) {
                 int finalRound = modelRound.incrementAndGet();
+                long deliveryDeadlineNanos = Math.min(finalizationDeadlineNanos,
+                        finalizationDeadlineNanos(System.nanoTime(), properties.getTimeFinalizationGraceSeconds()));
                 answer = finalizeResponse(request, draft, context, activityCoordinator, modelCallPolicy,
-                        finalRound, executionDeadlineNanos);
+                        finalRound, deliveryDeadlineNanos, false);
                 if (context.isCancelled()) {
                     return cancelledResult(stdout.toString(), context);
                 }
@@ -750,10 +798,11 @@ public class DefaultLangChainRuntimeDelegate implements LangChainRuntimeDelegate
      * @param activityCoordinator 模型请求与响应状态协调器
      * @param modelCallPolicy 当前执行统一的模型调用重试策略
      * @param round 最终交付消息使用的轮次编号
-     * @param executionDeadlineNanos 当前完整执行共享的单调时钟截止点
+     * @param executionDeadlineNanos 当前最终交付请求的单调时钟截止点
+     * @param preserveDraftOnFailure 最终交付失败时是否保留已有调查草稿
      * @return 经过最终交付阶段生成并校验的回答文本
      * @throws InterruptedException 等待流式模型响应时线程被中断
-     * @throws IllegalStateException 最终交付超时、模型调用失败或返回无效结果
+     * @throws IllegalStateException 模型调用失败或返回无效结果
      */
     private String finalizeResponse(RuntimeExecutionRequest request,
                                     String draft,
@@ -761,14 +810,13 @@ public class DefaultLangChainRuntimeDelegate implements LangChainRuntimeDelegate
                                     LangChainActivityEventCoordinator activityCoordinator,
                                     LangChainModelCallPolicy modelCallPolicy,
                                     int round,
-                                    long executionDeadlineNanos) throws InterruptedException {
+                                    long executionDeadlineNanos,
+                                    boolean preserveDraftOnFailure) throws InterruptedException {
         if (context.isCancelled()) {
             return null;
         }
         if (executionDeadlineNanos - System.nanoTime() <= 0L) {
-            activityCoordinator.executionFailed();
-            context.cancel();
-            throw new IllegalStateException("最终交付阶段执行超时");
+            return finalizationFallback(draft, null);
         }
         CountDownLatch completed = new CountDownLatch(1);
         AtomicReference<ChatResponse> responseRef = new AtomicReference<>();
@@ -785,41 +833,50 @@ public class DefaultLangChainRuntimeDelegate implements LangChainRuntimeDelegate
                                 request.finalResponseInstructions())),
                         UserMessage.from(finalizationPrompt(request.finalResponsePrompt(), draft)))
                 .build();
-        model.chat(finalRequest, new StreamingChatResponseHandler() {
-            @Override
-            public void onPartialResponse(String partialResponse) {
-                activityCoordinator.modelTextReceived();
-                partialText.append(partialResponse);
-                context.emitMessageDelta(new RuntimeMessageDelta("round-" + round, partialResponse));
-            }
+        try {
+            model.chat(finalRequest, new StreamingChatResponseHandler() {
+                @Override
+                public void onPartialResponse(String partialResponse) {
+                    activityCoordinator.modelTextReceived();
+                    partialText.append(partialResponse);
+                    context.emitMessageDelta(new RuntimeMessageDelta("round-" + round, partialResponse));
+                }
 
-            @Override
-            public void onPartialThinking(PartialThinking thinking) {
-                appendThinking(context, partialThinking, thinking, round);
-            }
+                @Override
+                public void onPartialThinking(PartialThinking thinking) {
+                    appendThinking(context, partialThinking, thinking, round);
+                }
 
-            @Override
-            public void onCompleteResponse(ChatResponse response) {
-                emitModelReasoning(context, response, partialThinking, round);
-                responseRef.set(response);
-                completed.countDown();
-            }
+                @Override
+                public void onCompleteResponse(ChatResponse response) {
+                    emitModelReasoning(context, response, partialThinking, round);
+                    responseRef.set(response);
+                    completed.countDown();
+                }
 
-            @Override
-            public void onError(Throwable error) {
-                errorRef.set(error);
-                completed.countDown();
+                @Override
+                public void onError(Throwable error) {
+                    errorRef.set(error);
+                    completed.countDown();
+                }
+            });
+        } catch (RuntimeException exception) {
+            if (preserveDraftOnFailure) {
+                log.warn("Time finalization request failed before streaming; preserving draft executionId={} message={}",
+                        request.executionId(), errorMessage(exception));
+                return finalizationFallback(draft, partialText.toString());
             }
-        });
+            activityCoordinator.executionFailed();
+            throw exception;
+        }
         while (completed.getCount() > 0L) {
             if (context.isCancelled()) {
                 return null;
             }
             long remainingNanos = executionDeadlineNanos - System.nanoTime();
             if (remainingNanos <= 0L) {
-                activityCoordinator.executionFailed();
-                context.cancel();
-                throw new IllegalStateException("最终交付阶段执行超时");
+                context.stopCurrentWork();
+                return finalizationFallback(draft, partialText.toString());
             }
             completed.await(Math.min(remainingNanos, TimeUnit.MILLISECONDS.toNanos(200L)),
                     TimeUnit.NANOSECONDS);
@@ -828,6 +885,11 @@ public class DefaultLangChainRuntimeDelegate implements LangChainRuntimeDelegate
             return null;
         }
         if (errorRef.get() != null) {
+            if (preserveDraftOnFailure) {
+                log.warn("Time finalization request failed; preserving draft executionId={} message={}",
+                        request.executionId(), errorMessage(errorRef.get()));
+                return finalizationFallback(draft, partialText.toString());
+            }
             activityCoordinator.executionFailed();
             throw new IllegalStateException("最终交付阶段失败：" + errorMessage(errorRef.get()), errorRef.get());
         }
@@ -864,6 +926,56 @@ public class DefaultLangChainRuntimeDelegate implements LangChainRuntimeDelegate
         return LangChainPromptKit.format("langchain-final-delivery-user.md",
                 originalTask == null ? "" : originalTask.strip(),
                 draft == null ? "" : draft.strip());
+    }
+
+    long finalizationDeadlineNanos(long executionDeadlineNanos, long graceSeconds) {
+        long graceNanos = TimeUnit.SECONDS.toNanos(Math.max(0L, graceSeconds));
+        if (Long.MAX_VALUE - executionDeadlineNanos < graceNanos) {
+            return Long.MAX_VALUE;
+        }
+        return executionDeadlineNanos + graceNanos;
+    }
+
+    String timeoutAnswer(String completedProgress, String currentResponse) {
+        String progress = completedProgress == null ? "" : completedProgress.strip();
+        String current = currentResponse == null ? "" : currentResponse.strip();
+        StringBuilder answer = new StringBuilder(
+                "任务已达到执行时间上限。以下为停止继续调查前已形成的阶段性结果；尚未完成的核验可能缺失。");
+        if (!progress.isBlank()) {
+            answer.append("\n\n").append(progress);
+        }
+        if (!current.isBlank() && !progress.contains(current)) {
+            answer.append("\n\n").append(current);
+        }
+        if (progress.isBlank() && current.isBlank()) {
+            answer.append("\n\n执行过程和会话上下文已保留，可继续任务以完成结论整理。");
+        }
+        return answer.toString();
+    }
+
+    String finalizationFallback(String draft, String partialText) {
+        if (draft != null && !draft.isBlank()) {
+            return draft.strip();
+        }
+        if (partialText != null && !partialText.isBlank()) {
+            return partialText.strip();
+        }
+        return "任务已达到执行时间上限，执行过程和会话上下文已保留，可继续任务以完成结论整理。";
+    }
+
+    String markTimeLimitedResult(String answer) {
+        String value = answer == null ? "" : answer.strip();
+        if (value.contains("达到执行时间上限")) {
+            return value;
+        }
+        String notice = "任务已达到执行时间上限，已停止继续调查。以下为基于当前已有信息形成的阶段性结果，可能存在未完成核验。";
+        return value.isBlank() ? notice : notice + "\n\n" + value;
+    }
+
+    private void appendTimeoutFinalResponse(LangChainFileChatMemoryStore store, String executionId, String answer) {
+        List<ChatMessage> messages = new ArrayList<>(store.getMessages(executionId));
+        messages.add(AiMessage.from(answer));
+        store.updateMessages(executionId, messages);
     }
 
     /**

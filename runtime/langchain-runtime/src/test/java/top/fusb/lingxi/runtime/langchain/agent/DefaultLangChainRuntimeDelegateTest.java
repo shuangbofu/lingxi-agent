@@ -3,7 +3,9 @@ package top.fusb.lingxi.runtime.langchain.agent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import top.fusb.lingxi.runtime.api.execution.RuntimeCommandDescriptor;
 import top.fusb.lingxi.runtime.api.execution.RuntimeExecutionEnvironment;
+import top.fusb.lingxi.runtime.api.execution.RuntimeExecutionRequest;
 import top.fusb.lingxi.runtime.api.execution.RuntimeSkillDescriptor;
+import top.fusb.lingxi.runtime.api.execution.RuntimeWorkspaceLayout;
 import top.fusb.lingxi.runtime.api.event.RuntimeActionIcon;
 import top.fusb.lingxi.runtime.api.event.RuntimeEvent;
 import top.fusb.lingxi.runtime.api.event.RuntimeEventStatus;
@@ -20,6 +22,8 @@ import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
+import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.output.FinishReason;
 import dev.langchain4j.model.output.TokenUsage;
 import dev.langchain4j.model.openai.OpenAiChatModel;
@@ -36,6 +40,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -44,6 +50,92 @@ class DefaultLangChainRuntimeDelegateTest {
 
     @TempDir
     Path workspace;
+
+    @Test
+    void keepsFinalizationGraceOutsideExecutionTimeout() {
+        DefaultLangChainRuntimeDelegate delegate = new DefaultLangChainRuntimeDelegate(new LangChainRuntimeProperties());
+        try {
+            long deadline = TimeUnit.SECONDS.toNanos(900L);
+
+            assertThat(delegate.finalizationDeadlineNanos(deadline, 120L))
+                    .isEqualTo(TimeUnit.SECONDS.toNanos(1_020L));
+        } finally {
+            delegate.close();
+        }
+    }
+
+    @Test
+    void preservesProgressWhenExecutionReachesTimeLimit() {
+        DefaultLangChainRuntimeDelegate delegate = new DefaultLangChainRuntimeDelegate(new LangChainRuntimeProperties());
+        try {
+            assertThat(delegate.timeoutAnswer("已查询 879 个资产包", "其中 32 个待复核"))
+                    .contains("达到执行时间上限", "已查询 879 个资产包", "其中 32 个待复核")
+                    .doesNotContain("执行失败");
+            assertThat(delegate.finalizationFallback("已形成的调查结论", "未完成的润色文本"))
+                    .isEqualTo("已形成的调查结论");
+            assertThat(delegate.markTimeLimitedResult("已形成的调查结论"))
+                    .contains("达到执行时间上限", "阶段性结果", "已形成的调查结论");
+        } finally {
+            delegate.close();
+        }
+    }
+
+    @Test
+    void returnsFinalizedPartialResultAfterExplorationTimeout() throws Exception {
+        Path executionRoot = Files.createDirectories(workspace.resolve("execution"));
+        Path taskContextRoot = Files.createDirectories(workspace.resolve("task-context"));
+        Path runtimeInputRoot = Files.createDirectories(workspace.resolve("runtime-input"));
+        Path artifactsRoot = Files.createDirectories(workspace.resolve("artifacts"));
+        Path runtimeRoot = Files.createDirectories(workspace.resolve("runtime"));
+        Path runtimeStateRoot = Files.createDirectories(workspace.resolve("runtime-state"));
+        Path privateRuntimeRoot = Files.createDirectories(workspace.resolve("private-runtime"));
+        AtomicInteger modelCalls = new AtomicInteger();
+        LangChainRuntimeProperties properties = new LangChainRuntimeProperties();
+        properties.setTimeFinalizationGraceSeconds(2L);
+        DefaultLangChainRuntimeDelegate delegate = new DefaultLangChainRuntimeDelegate(properties) {
+            @Override
+            StreamingChatModel streamingModel(RuntimeModelConfig config, long timeoutSeconds,
+                                               LangChainActivityEventCoordinator activityCoordinator) {
+                return new StreamingChatModel() {
+                    @Override
+                    public void doChat(dev.langchain4j.model.chat.request.ChatRequest request,
+                                       StreamingChatResponseHandler handler) {
+                        if (modelCalls.incrementAndGet() == 1) {
+                            return;
+                        }
+                        handler.onCompleteResponse(ChatResponse.builder()
+                                .aiMessage(AiMessage.from("已根据现有调查信息整理出阶段性结论"))
+                                .build());
+                    }
+                };
+            }
+        };
+        RuntimeModelConfig modelConfig = new RuntimeModelConfig(
+                "test-key", "SYSTEM", "https://example.test/v1", "test-model",
+                null, 128_000, RuntimeModelProtocol.RESPONSES, false);
+        RuntimeExecutionRequest request = new RuntimeExecutionRequest(
+                "timeout-execution", "timeout-conversation", "timeout-execution",
+                new RuntimeWorkspaceLayout(
+                        executionRoot.toString(), taskContextRoot.toString(), runtimeInputRoot.toString(),
+                        artifactsRoot.toString(), runtimeRoot.toString(), runtimeStateRoot.toString(),
+                        privateRuntimeRoot.toString()),
+                "", "", "", "调查并给出结论", "调查并给出结论", "", true, true,
+                "test-user", modelConfig, List.of(), false, List.of(), RuntimeExecutionEnvironment.empty(),
+                null, false, 1L);
+        try {
+            var result = delegate.execute(request, event -> { });
+
+            assertThat(result.exitCode()).isZero();
+            assertThat(result.resultText())
+                    .contains("达到执行时间上限", "阶段性结果", "已根据现有调查信息整理出阶段性结论");
+            assertThat(result.stdoutText()).contains("达到执行时间上限", result.resultText());
+            assertThat(result.session()).isNotNull();
+            assertThat(Path.of(result.session().sessionPath())).exists();
+            assertThat(modelCalls).hasValue(2);
+        } finally {
+            delegate.close();
+        }
+    }
 
     @Test
     void systemPromptRequiresVisibleProgressBeforeFurtherToolCalls() throws Exception {

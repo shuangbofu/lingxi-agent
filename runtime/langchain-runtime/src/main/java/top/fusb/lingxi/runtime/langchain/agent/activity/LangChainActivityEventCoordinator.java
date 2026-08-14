@@ -49,6 +49,7 @@ public final class LangChainActivityEventCoordinator implements ChatModelListene
     private boolean deferToolEventsUntilIntermediateResponse;
     private String currentTransientState;
     private boolean executionTerminated;
+    private boolean timeFinalizing;
 
     /**
      * 创建单次 LangChain 执行的活动状态协调器。
@@ -182,6 +183,9 @@ public final class LangChainActivityEventCoordinator implements ChatModelListene
      */
     @Override
     public synchronized void onRequest(ChatModelRequestContext requestContext) {
+        if (timeFinalizing) {
+            return;
+        }
         modelRequestRunning = true;
         currentModelRequestId = requestIdPrefix + "-" + (++modelRequestSequence);
         currentToolBatchId = null;
@@ -204,6 +208,9 @@ public final class LangChainActivityEventCoordinator implements ChatModelListene
      */
     @Override
     public synchronized void onResponse(ChatModelResponseContext responseContext) {
+        if (timeFinalizing) {
+            return;
+        }
         String completedModelRequestId = currentModelRequestId;
         markFirstModelResponse();
         emitModelRequestMetric("runtime.model.request.completed", RuntimeEventSemantic.MODEL_REQUEST_COMPLETED,
@@ -238,6 +245,9 @@ public final class LangChainActivityEventCoordinator implements ChatModelListene
      */
     @Override
     public synchronized void onError(ChatModelErrorContext errorContext) {
+        if (timeFinalizing) {
+            return;
+        }
         emitModelRequestMetric("runtime.model.request.failed", RuntimeEventSemantic.MODEL_REQUEST_FAILED,
                 RuntimeEventStatus.FAILED,
                 errorMetrics(errorContext));
@@ -252,6 +262,9 @@ public final class LangChainActivityEventCoordinator implements ChatModelListene
      * @return 无返回值
      */
     public synchronized void modelTextReceived() {
+        if (timeFinalizing) {
+            return;
+        }
         markFirstModelResponse();
         emitRunningState("langchain.response.generating", "生成回答");
     }
@@ -262,6 +275,9 @@ public final class LangChainActivityEventCoordinator implements ChatModelListene
      * @return 无返回值
      */
     public synchronized void modelToolCallReceived() {
+        if (timeFinalizing) {
+            return;
+        }
         markFirstModelResponse();
         deferToolEventsUntilIntermediateResponse = true;
         emitRunningState("langchain.tool-call.generating", "生成工具调用");
@@ -274,7 +290,7 @@ public final class LangChainActivityEventCoordinator implements ChatModelListene
      * @return 无返回值
      */
     public synchronized void toolStarted(RuntimeEvent event) {
-        if (executionTerminated) {
+        if (executionTerminated || timeFinalizing) {
             return;
         }
         String toolId = activityId(event);
@@ -297,7 +313,7 @@ public final class LangChainActivityEventCoordinator implements ChatModelListene
      * @return 无返回值
      */
     public synchronized void toolCompleted(RuntimeEvent event) {
-        if (executionTerminated) {
+        if (executionTerminated || timeFinalizing) {
             return;
         }
         String toolId = activityId(event);
@@ -381,6 +397,32 @@ public final class LangChainActivityEventCoordinator implements ChatModelListene
      */
     public synchronized void executionCancelled() {
         terminateExecution("任务已取消，操作未完成");
+    }
+
+    /**
+     * 关闭达到探索时间上限时仍在运行的动作，并切换到最终结果整理状态。
+     *
+     * @return 无返回值
+     */
+    public synchronized void timeFinalizationStarted() {
+        if (modelRequestRunning) {
+            emitModelRequestMetric("runtime.model.request.failed", RuntimeEventSemantic.MODEL_REQUEST_FAILED,
+                    RuntimeEventStatus.FAILED,
+                    Map.of("errorType", "TIME_LIMIT", "errorMessage", "达到探索时间上限，已进入结果整理"));
+        }
+        timeFinalizing = true;
+        modelRequestRunning = false;
+        currentModelRequestId = null;
+        deferToolEventsUntilIntermediateResponse = false;
+        deferredToolEvents.forEach(this::emitPersistent);
+        deferredToolEvents.clear();
+        runningTools.values().forEach(event -> emitPersistent(
+                failedToolEvent(event, "达到探索时间上限，已停止继续调查")));
+        anonymousRunningTools.forEach(event -> emitPersistent(
+                failedToolEvent(event, "达到探索时间上限，已停止继续调查")));
+        runningTools.clear();
+        anonymousRunningTools.clear();
+        emitRunningState("langchain.result.finalizing", "整理已有结果");
     }
 
     private void terminateExecution(String reason) {

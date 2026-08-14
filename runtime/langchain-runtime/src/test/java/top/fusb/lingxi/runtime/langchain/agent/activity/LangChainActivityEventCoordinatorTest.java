@@ -251,6 +251,34 @@ class LangChainActivityEventCoordinatorTest {
     }
 
     @Test
+    void closesRunningToolsAndIgnoresLateCallbacksDuringTimeFinalization() {
+        List<RuntimeEvent> events = new ArrayList<>();
+        LangChainActivityEventCoordinator coordinator = new LangChainActivityEventCoordinator(events::add);
+
+        coordinator.onRequest(null);
+        coordinator.toolStarted(tool("slow-call", RuntimeEventStatus.RUNNING));
+        coordinator.timeFinalizationStarted();
+        coordinator.toolCompleted(tool("slow-call", RuntimeEventStatus.SUCCESS));
+        coordinator.toolStarted(tool("late-call", RuntimeEventStatus.RUNNING));
+        ChatRequest lateRequest = ChatRequest.builder().messages(UserMessage.from("late request")).build();
+        coordinator.onError(new ChatModelErrorContext(
+                new IllegalStateException("late cancellation"), lateRequest, null, Map.of()));
+
+        assertThat(events).filteredOn(event -> "tool:read_file".equals(event.title()))
+                .extracting(RuntimeEvent::status)
+                .containsExactly(RuntimeEventStatus.RUNNING, RuntimeEventStatus.FAILED);
+        assertThat(events).filteredOn(event -> event.status() == RuntimeEventStatus.FAILED
+                        && "tool:read_file".equals(event.title()))
+                .extracting(event -> event.payload().output())
+                .containsExactly("达到探索时间上限，已停止继续调查");
+        assertThat(events.get(events.size() - 1).title()).isEqualTo("langchain.result.finalizing");
+        assertThat(events).filteredOn(event -> "runtime.model.request.failed".equals(event.payload().rawType()))
+                .singleElement()
+                .satisfies(event -> assertThat(event.payload().metrics())
+                        .containsEntry("errorType", "TIME_LIMIT"));
+    }
+
+    @Test
     void hidesImplementationNameFromModelErrorMetrics() {
         List<RuntimeEvent> events = new ArrayList<>();
         LangChainActivityEventCoordinator coordinator = new LangChainActivityEventCoordinator(events::add);
