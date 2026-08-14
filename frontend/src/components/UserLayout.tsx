@@ -7,6 +7,7 @@ import { usePageTransitionNavigate } from '../hooks/usePageTransitionNavigate';
 import { loginPathWithRedirect } from '../utils/authRedirect';
 import { AppBrandText } from './AppBrandText';
 import { AppLogo } from './AppLogo';
+import { ModeControl } from './ModeControl';
 import { ThemeControl } from './ThemeControl';
 import { UserAvatar } from './UserAvatar';
 
@@ -36,7 +37,8 @@ export function UserLayout() {
 
   async function handleAccountMenu(key: string) {
     if (key === 'history') {
-      transitionNavigate('/history', { direction: location.pathname.startsWith('/runs/') ? 'backward' : 'forward' });
+      const from = location.pathname === '/ask' ? '?from=ask' : '';
+      transitionNavigate(`/history${from}`, { direction: location.pathname.startsWith('/runs/') ? 'backward' : 'forward' });
       return;
     }
     if (key === 'models') {
@@ -67,8 +69,11 @@ export function UserLayout() {
           <AppBrandText className="top-lingxi-name" />
         </button>
         <div className="top-user-actions">
+          {location.pathname === '/ask' && (
+            <ModeControl placement="bottomRight" value="ask" />
+          )}
           {user.role === 'ADMIN' && (
-            <Button type="text" className="portal-mode-switch" icon={<SquaresFour size={17} weight="fill" />} onClick={() => navigate(firstAdminMenuPath)}>
+            <Button type="text" className="portal-mode-switch" icon={<SquaresFour size={17} weight="fill" />} onClick={() => navigate(firstAdminMenuPath, { state: { from: location.pathname } })}>
               进入管理
             </Button>
           )}

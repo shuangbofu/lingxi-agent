@@ -33,7 +33,7 @@ import { PageHeaderTitle } from '../components/PageHeaderTitle';
 import { ProviderTypeIcon } from '../components/ProviderTypeIcon';
 import { invalidateRuntimeModes } from '../hooks/useRuntimeModes';
 
-export function ModelManagementPage({ scope }: { scope: ModelConfigScope }) {
+export function ModelManagementPage({ scope, embedded = false }: { scope: ModelConfigScope; embedded?: boolean }) {
   const navigate = useNavigate();
   const location = useLocation();
   const personal = scope === 'PERSONAL';
@@ -316,10 +316,12 @@ export function ModelManagementPage({ scope }: { scope: ModelConfigScope }) {
             <div className="min-w-0"><h1>模型配置</h1></div>
             <div className="profile-actions">
               <Button icon={<ArrowClockwise size={16} weight="bold" />} onClick={() => loadCatalog()}>刷新</Button>
-              <Button
-                icon={<CaretLeft size={16} />}
-                onClick={() => navigate(returnState.path, { replace: true, state: returnState.state })}
-              >返回</Button>
+              {!embedded && (
+                <Button
+                  icon={<CaretLeft size={16} />}
+                  onClick={() => navigate(returnState.path, { replace: true, state: returnState.state })}
+                >返回</Button>
+              )}
             </div>
           </div>
         ) : (

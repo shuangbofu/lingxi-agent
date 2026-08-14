@@ -84,6 +84,15 @@ export function AdminLayout() {
     });
   }
 
+  function returnUserPath() {
+    const state = location.state as { from?: string } | null;
+    const from = state?.from;
+    if (from && (from === '/' || from === '/ask' || from.startsWith('/chat') || from.startsWith('/history') || from.startsWith('/profile'))) {
+      return from;
+    }
+    return '/';
+  }
+
   async function handleAccountMenu(key: string) {
     if (key === 'history') {
       navigate('/history');
@@ -136,7 +145,7 @@ export function AdminLayout() {
       <Layout className={topMenu ? 'portal-admin-main min-h-0 flex-1 bg-transparent' : 'portal-admin-main min-h-screen bg-transparent'}>
         <header className={topMenu ? 'top-lingxi-header top-lingxi-header--admin top-lingxi-header--admin-top' : 'top-lingxi-header top-lingxi-header--admin'}>
           {topMenu ? (
-            <button className="top-lingxi-brand portal-admin-top-brand" type="button" onClick={() => navigate('/')}>
+            <button className="top-lingxi-brand portal-admin-top-brand" type="button" onClick={() => navigate(returnUserPath())}>
               <span className="top-lingxi-logo"><AppLogo /></span>
               <AppBrandText className="portal-admin-top-name" englishName="管理控制台 · LINGXI ADMIN" />
             </button>
@@ -157,7 +166,7 @@ export function AdminLayout() {
             />
           )}
           <div className="top-user-actions">
-            <Button type="text" className="portal-mode-switch" icon={<Sparkle size={17} weight="fill" />} onClick={() => navigate('/')}>
+            <Button type="text" className="portal-mode-switch" icon={<Sparkle size={17} weight="fill" />} onClick={() => navigate(returnUserPath())}>
               返回分析入口
             </Button>
             <ThemeControl placement="bottomRight" />

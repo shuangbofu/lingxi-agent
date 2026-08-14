@@ -2,12 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { UIEvent } from 'react';
 import '../styles/task-workspace.css';
 import { Button, Segmented } from 'antd';
-import { ArrowCounterClockwise, Article, CaretLeft, CaretRight, ChartBar, ChatsCircle, Stop } from '@phosphor-icons/react';
+import { ArrowCounterClockwise, Article, CaretLeft, ChartBar, ChatsCircle, Stop } from '@phosphor-icons/react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { cancelTask, continueTaskRound, getTask, listEnabledScenarios, listTaskInteractions, listTaskRounds, rerunTask, resumeTask, retryTask } from '../api/lingxi';
 import { AgentOutput } from '../components/AgentOutput';
 import { StructuredResult } from '../components/StructuredResult';
-import { TaskAttachmentPreviewList } from '../components/TaskAttachmentPicker';
 import { TaskDownloadPdfButton } from '../components/TaskDownloadPdfButton';
 import { TaskShareButton } from '../components/TaskShareButton';
 import { TaskUserFloat } from '../components/TaskUserFloat';
@@ -20,13 +19,14 @@ import { TaskDetailLoading } from '../components/TaskDetailLoading';
 import { TaskFailureNotice } from '../components/TaskFailureNotice';
 import { RuntimeModeTag } from '../components/RuntimeModeTag';
 import { TaskModelTag } from '../components/TaskModelTag';
-import { mergeTaskEventState, useTaskEventStream } from '../hooks/useTaskEventStream';
+import { ConversationRound, ProcessDisclosure, buildTaskOutput, displayTaskQuestion, hasTaskOutcome, hasTaskProcess, hasTaskResult, roundElementId, roundSectionElementId, taskFailureText } from '../components/conversation/ConversationRound';
+import { useTaskEventStream } from '../hooks/useTaskEventStream';
 import { useRuntimeModes } from '../hooks/useRuntimeModes';
 import { usePageTransitionNavigate } from '../hooks/usePageTransitionNavigate';
 import type { AgentRuntimeDescriptor, AgentScenario, TaskItem, TaskRoundSummary } from '../types/api';
-import { displayTaskTitle, displayTaskType, formatDuration, formatTime } from '../utils/format';
+import { displayTaskType, formatDuration, formatTime } from '../utils/format';
+import { latestRound, mergeRoundList, mergeTaskDetail } from '../utils/conversation';
 import { isActiveTaskStatus } from '../utils/taskStatus';
-import { cleanGeneratedText } from '../utils/text';
 import { taskDefinitionIconUrl } from '../utils/taskVisual';
 import { useAuth } from '../context/AuthContext';
 
@@ -222,7 +222,9 @@ export function TaskRunPage() {
   }
 
   function handleBack() {
-    transitionNavigate(searchParams.get('from') === 'history' ? '/history' : '/', { direction: 'backward' });
+    const from = searchParams.get('from');
+    const target = from === 'history' ? '/history' : from === 'ask' ? '/ask' : from === 'chat' ? '/chat' : '/';
+    transitionNavigate(target, { direction: 'backward' });
   }
 
   async function handleCancel() {
@@ -520,66 +522,6 @@ function RoundSwitcher({ rounds, activeId, onSelect }: { rounds: TaskRoundSummar
   );
 }
 
-function ConversationRound({ task, isLatest, scenarios }: { task: TaskItem; isLatest: boolean; scenarios: AgentScenario[] }) {
-  const output = buildTaskOutput(task);
-  const hasResult = hasTaskResult(task, output.result);
-  const failureText = taskFailureText(task, output.result);
-  const active = isActiveTaskStatus(task.status);
-  const hasProcess = hasTaskProcess(task);
-  return (
-    <section id={roundElementId(task.id)} className="run-conversation-round">
-      <div className="run-user-row">
-        <div className="run-user-message">
-          <div className="run-message-meta">
-            <span>{(task.roundNo || 1) > 1 ? `我 · 第 ${task.roundNo} 轮` : '我'}</span>
-            <span>{formatTime(task.createdAt)}</span>
-          </div>
-          <div className="run-user-bubble">
-            <div className="run-user-text">{task.userInput || (task.attachments?.length ? '请处理这些附件' : '-')}</div>
-            <TaskAttachmentPreviewList attachments={task.attachments || []} compact />
-          </div>
-        </div>
-      </div>
-      <div className="run-agent-row">
-        <div className="run-agent-content">
-          {hasProcess && active && (
-            <div id={roundSectionElementId(task.id, 'process')} className="run-agent-process">
-              <AgentOutput
-                taskId={task.id}
-                entries={task.eventEntries}
-                events={task.events}
-                liveMessages={task.liveAgentMessages}
-                emptyText={active ? '正在处理...' : '暂无执行过程'}
-                running={active}
-              />
-            </div>
-          )}
-          {hasProcess && !active && <ProcessDisclosure task={task} id={roundSectionElementId(task.id, 'process')} />}
-          {hasResult && (
-            <div id={roundSectionElementId(task.id, 'result')} className={hasProcess && active ? 'run-agent-result run-agent-result-separated' : 'run-agent-result'}>
-              <StructuredResult
-                data={task.resultData}
-                fallback={output.result}
-                title={displayTaskQuestion(task)}
-                renderer={task.resultRenderer}
-                reportName={displayTaskType(task.scenario, task.scenarioName)}
-                embedded
-              />
-              {isLatest && <TaskRecommendedScenarios task={task} scenarios={scenarios} />}
-            </div>
-          )}
-          {failureText && (
-            <div id={roundSectionElementId(task.id, 'result')} className="run-agent-result">
-              <TaskFailureNotice text={failureText} />
-            </div>
-          )}
-          {!hasProcess && !hasResult && !failureText && <div className="run-agent-empty">暂无输出</div>}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function ReadingView({ task, scenarios }: { task: TaskItem; scenarios: AgentScenario[] }) {
   const output = buildTaskOutput(task);
   const hasResult = hasTaskResult(task, output.result);
@@ -614,108 +556,4 @@ function ReadingView({ task, scenarios }: { task: TaskItem; scenarios: AgentScen
       </div>
     </div>
   );
-}
-
-function ProcessDisclosure({ task, id }: { task: TaskItem; id?: string }) {
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    setExpanded(false);
-  }, [task.id, task.status]);
-
-  const duration = task.startedAt ? formatDuration(task.startedAt, task.endedAt) : undefined;
-  return (
-    <section id={id} className={expanded ? 'run-process-disclosure run-process-disclosure-open' : 'run-process-disclosure'}>
-      <button type="button" className="run-process-disclosure-toggle" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>
-        <span>已处理{duration ? ` ${duration}` : ''}</span>
-        <CaretRight size={14} weight="bold" aria-hidden />
-      </button>
-      <div className="run-process-disclosure-motion" aria-hidden={!expanded}>
-        <div className="run-process-disclosure-body run-agent-process">
-          <AgentOutput taskId={task.id} entries={task.eventEntries} events={task.events} liveMessages={task.liveAgentMessages} emptyText="暂无思考过程" />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function mergeRoundList(rounds: TaskRoundSummary[], currentTask: TaskItem) {
-  const map = new Map<number, TaskRoundSummary>();
-  rounds.forEach((round) => map.set(round.id, round));
-  map.set(currentTask.id, {
-    id: currentTask.id,
-    roundNo: currentTask.roundNo,
-    userInput: currentTask.userInput,
-    status: currentTask.status,
-    requestCount: currentTask.requestCount,
-    inputTokens: currentTask.inputTokens,
-    cachedInputTokens: currentTask.cachedInputTokens,
-    cacheCreationInputTokens: currentTask.cacheCreationInputTokens,
-    outputTokens: currentTask.outputTokens,
-    reasoningOutputTokens: currentTask.reasoningOutputTokens,
-    totalTokens: currentTask.totalTokens,
-    resourceMemoryMetrics: currentTask.resourceMemoryMetrics,
-    executionMetrics: currentTask.executionMetrics,
-    startedAt: currentTask.startedAt,
-    endedAt: currentTask.endedAt,
-    createdAt: currentTask.createdAt,
-    updatedAt: currentTask.updatedAt,
-  });
-  return Array.from(map.values()).sort((left, right) => (left.roundNo || 1) - (right.roundNo || 1) || left.id - right.id);
-}
-
-function latestRound(rounds: TaskRoundSummary[]) {
-  return rounds[rounds.length - 1];
-}
-
-function displayTaskQuestion(task: TaskItem) {
-  return displayTaskTitle(task.userInput || task.title, task.scenario, task.scenarioName);
-}
-
-function roundElementId(taskId: number) {
-  return `run-round-${taskId}`;
-}
-
-function roundSectionElementId(taskId: number, section: 'process' | 'result') {
-  return `${roundElementId(taskId)}-${section}`;
-}
-
-function mergeTaskDetail(previous: TaskItem | undefined, next: TaskItem) {
-  if (!previous || previous.id !== next.id) {
-    return next;
-  }
-  return {
-    ...next,
-    ...mergeTaskEventState(previous.events, next.events, previous.liveAgentMessages),
-    interactions: next.interactions || previous.interactions,
-  };
-}
-
-function buildTaskOutput(task: TaskItem) {
-  const process = cleanGeneratedText(task.stdoutText);
-  const result = cleanGeneratedText(task.resultText);
-  return result ? { process, result } : { process, result: '' };
-}
-
-function hasTaskResult(task: TaskItem, result: string) {
-  return Boolean(task.resultData || (task.status !== 'FAILED' && result));
-}
-
-function hasTaskOutcome(task: TaskItem, result: string) {
-  return task.status === 'FAILED' || hasTaskResult(task, result);
-}
-
-function taskFailureText(task: TaskItem, result: string) {
-  if (task.status !== 'FAILED') {
-    return '';
-  }
-  return cleanGeneratedText(task.stderrText || result)
-    .replace(/^执行失败[:：]\s*/, '')
-    || '处理失败，未返回错误详情';
-}
-
-function hasTaskProcess(task: TaskItem) {
-  return isActiveTaskStatus(task.status)
-    || task.status === 'FAILED'
-    || Boolean(task.events?.length || task.eventEntries?.length || Object.keys(task.liveAgentMessages || {}).length);
 }

@@ -3,6 +3,7 @@ import { Button, Empty, Input, Select, Spin } from 'antd';
 import '../styles/history.css';
 import { ArrowClockwise, CaretLeft, ClockCounterClockwise } from '@phosphor-icons/react';
 import dayjs from 'dayjs';
+import { useSearchParams } from 'react-router-dom';
 import { pageTasks } from '../api/lingxi';
 import { DefinitionIcon } from '../components/DefinitionIcon';
 import type { TaskItem, TaskRoundSummary, TaskStatus } from '../types/api';
@@ -19,6 +20,8 @@ type TaskSortBy = 'updatedAt' | 'createdAt';
 
 export function TaskHistoryPage() {
   const transitionNavigate = usePageTransitionNavigate();
+  const [searchParams] = useSearchParams();
+  const historyFrom = searchParams.get('from') === 'ask' ? '/ask' : '/';
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
@@ -90,7 +93,7 @@ export function TaskHistoryPage() {
             <h1>历史记录</h1>
           </div>
           <div className="history-actions">
-            <Button icon={<CaretLeft size={16} />} onClick={() => transitionNavigate('/', { direction: 'backward' })}>返回</Button>
+            <Button icon={<CaretLeft size={16} />} onClick={() => transitionNavigate(historyFrom, { direction: 'backward' })}>返回</Button>
             <Button icon={<ArrowClockwise size={16} weight="fill" />} onClick={() => loadHistory()}>刷新</Button>
           </div>
         </div>

@@ -7,6 +7,7 @@ import { UserLayout } from '../components/UserLayout';
 import { loginPathWithRedirect } from '../utils/authRedirect';
 
 const AskPage = lazy(() => import('../pages/AskPage').then((module) => ({ default: module.AskPage })));
+const ChatPage = lazy(() => import('../pages/ChatPage').then((module) => ({ default: module.ChatPage })));
 const DashboardPage = lazy(() => import('../pages/DashboardPage').then((module) => ({ default: module.DashboardPage })));
 const AnalysisPremisePage = lazy(() => import('../pages/AnalysisPremisePage').then((module) => ({ default: module.AnalysisPremisePage })));
 const CapabilityManagementPage = lazy(() => import('../pages/CapabilityManagementPage').then((module) => ({ default: module.CapabilityManagementPage })));
@@ -29,8 +30,11 @@ export function AppRouter() {
       <Routes>
         <Route path="/login" element={defer(<LoginPage />)} />
         <Route path="/share/:shareCode" element={defer(<TaskSharePage />)} />
+        <Route path="/" element={defer(<ChatPage />)} />
+        <Route path="/chat" element={defer(<ChatPage />)} />
+        <Route path="/chat/:rootTaskId" element={defer(<ChatPage />)} />
         <Route element={<UserLayout />}>
-          <Route path="/" element={defer(<AskPage />)} />
+          <Route path="/ask" element={defer(<AskPage />)} />
           <Route path="/history" element={defer(<TaskHistoryPage />)} />
           <Route path="/analysis" element={<Navigate to="/" replace />} />
           <Route path="/runs/:id" element={defer(<TaskRunPage />)} />

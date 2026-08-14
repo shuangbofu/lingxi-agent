@@ -35,7 +35,18 @@ interface AskDraft {
   attachments: TaskAttachment[];
 }
 
-export function AskPage() {
+interface AskPageProps {
+  /**
+   * 嵌入模式：作为对话页的新会话内容渲染，隐藏最近提问列表。
+   */
+  embedded?: boolean;
+  /**
+   * 提交成功回调：嵌入模式下由外层接管导航（不传时保持原有跳转运行页行为）。
+   */
+  onCreated?: (task: TaskItem) => void;
+}
+
+export function AskPage({ embedded = false, onCreated }: AskPageProps = {}) {
   const navigate = useNavigate();
   const location = useLocation();
   const transitionNavigate = usePageTransitionNavigate();
@@ -373,6 +384,10 @@ export function AskPage() {
         attachmentIds: prepared.attachmentIds,
       });
       clearAskDraft();
+      if (onCreated) {
+        onCreated(result);
+        return;
+      }
       setLaunching(true);
       message.success('已开始处理');
       const transitionDuration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 560;
@@ -428,7 +443,7 @@ export function AskPage() {
 
   return (
     <div
-      className={launching ? 'ask-entry-page ask-entry-page-launching' : submitting ? 'ask-entry-page ask-entry-page-requesting' : 'ask-entry-page'}
+      className={`${launching ? 'ask-entry-page ask-entry-page-launching' : submitting ? 'ask-entry-page ask-entry-page-requesting' : 'ask-entry-page'}${embedded ? ' ask-entry-page-embedded' : ''}`}
       style={selectedColor as CSSProperties}
     >
       <div className="ask-entry-main">
@@ -608,7 +623,7 @@ export function AskPage() {
               )}
             </div>
           </div>
-          {!formMode && <RecentQuestionList tasks={recentTasks} inputExpanded={inputExpanded} runtimeModes={runtimeModes} />}
+          {!embedded && !formMode && <RecentQuestionList tasks={recentTasks} inputExpanded={inputExpanded} runtimeModes={runtimeModes} />}
         </Form>
       </div>
       <Modal
@@ -860,7 +875,7 @@ function RecentQuestionList({ tasks, inputExpanded, runtimeModes }: {
           <span>最近提问</span>
           <CaretDown className={collapsed ? 'ask-recent-toggle-icon' : 'ask-recent-toggle-icon ask-recent-toggle-icon-open'} size={13} weight="bold" />
         </button>
-        <button type="button" onClick={() => transitionNavigate('/history', { direction: 'forward' })}>全部</button>
+        <button type="button" onClick={() => transitionNavigate('/history?from=ask', { direction: 'forward' })}>全部</button>
       </div>
       {!collapsed && <div className="ask-recent-list">
         {tasks.map((task) => {

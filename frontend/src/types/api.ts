@@ -1,4 +1,4 @@
-﻿export interface ApiResult<T> {
+export interface ApiResult<T> {
   success?: boolean;
   code: string;
   subCode: string;
@@ -597,6 +597,7 @@ export interface TaskExecutionMetrics {
   totalDurationMs?: number;
   firstFeedbackMs?: number;
   commandDurationMs: number;
+  modelDurationMs: number;
   resultProcessingMs?: number;
   compactionCount: number;
   duplicateCapabilityCallCount: number;

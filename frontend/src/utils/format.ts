@@ -1,4 +1,4 @@
-﻿import dayjs from 'dayjs';
+import dayjs from 'dayjs';
 import type { TaskScenario, TaskStatus } from '../types/api';
 
 export function formatTime(value?: string) {
@@ -15,7 +15,7 @@ export function formatRelativeTime(value?: string) {
   }
   const seconds = Math.max(0, dayjs().diff(time, 'second'));
   if (seconds < 60) {
-    return `${Math.max(1, seconds)}秒前`;
+    return '刚刚';
   }
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) {

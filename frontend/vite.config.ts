@@ -57,5 +57,13 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:8080',
     },
+    watch: {
+      // Windows 上编辑器/工具以"临时文件 + rename"方式替换文件时，
+      // Node fs.watch 对 rename 竞争会抛 EBUSY 并直接崩溃 dev server。
+      // 轮询模式不依赖 fs.watch 原生事件，可彻底规避该崩溃。
+      usePolling: process.platform === 'win32',
+      interval: 300,
+      ignored: [/\.tmp$/, /\.tmpdir/],
+    },
   },
 });

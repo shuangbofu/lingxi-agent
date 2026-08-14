@@ -20,7 +20,12 @@ type PasswordFormValues = {
 
 type UsagePeriod = 'day' | 'week' | 'month' | 'custom';
 
-export function ProfilePage() {
+interface ProfilePageProps {
+  /** 嵌入模式（对话页 modal 内）：不渲染页面级导航按钮 */
+  embedded?: boolean;
+}
+
+export function ProfilePage({ embedded = false }: ProfilePageProps = {}) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -78,11 +83,15 @@ export function ProfilePage() {
           <UserCircle size={20} weight="fill" />
           <div className="min-w-0"><h1>个人中心</h1></div>
           <div className="profile-actions">
-            <Button
-              icon={<Cpu size={16} />}
-              onClick={() => navigate('/profile/models', { state: { from: '/profile', profileFrom: returnPath } })}
-            >模型配置</Button>
-            <Button icon={<CaretLeft size={16} />} onClick={() => navigate(returnPath, { replace: true })}>返回</Button>
+            {!embedded && (
+              <>
+                <Button
+                  icon={<Cpu size={16} />}
+                  onClick={() => navigate('/profile/models', { state: { from: '/profile', profileFrom: returnPath } })}
+                >模型配置</Button>
+                <Button icon={<CaretLeft size={16} />} onClick={() => navigate(returnPath, { replace: true })}>返回</Button>
+              </>
+            )}
           </div>
         </div>
         <section className="profile-header-card">

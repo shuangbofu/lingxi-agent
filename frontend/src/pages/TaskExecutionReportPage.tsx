@@ -34,7 +34,14 @@ const tokenBreakdownItems = [
   { key: 'imageTokens', label: '图片', tone: 'image' },
 ] as const;
 
-export function TaskExecutionReportPage() {
+interface TaskExecutionReportPageProps {
+  /** 直接传入任务 ID（嵌入模式使用，不传时从路由参数读取） */
+  taskId?: number;
+  /** 嵌入模式：不渲染返回按钮，页面布局按内容区处理 */
+  embedded?: boolean;
+}
+
+export function TaskExecutionReportPage({ taskId: taskIdProp, embedded = false }: TaskExecutionReportPageProps = {}) {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -45,8 +52,8 @@ export function TaskExecutionReportPage() {
   const [failed, setFailed] = useState(false);
   const [selectedModelCallId, setSelectedModelCallId] = useState<string>();
   const [selectedModelCallGroupKey, setSelectedModelCallGroupKey] = useState<string | undefined>('all');
-  const taskId = Number(id);
-  const runLayout = location.pathname.startsWith('/runs/');
+  const taskId = Number(taskIdProp ?? id);
+  const runLayout = !embedded && location.pathname.startsWith('/runs/');
   const pageClassName = runLayout ? 'execution-report-page ask-run-page' : 'execution-report-page';
 
   const loadReport = useCallback(async () => {
@@ -109,7 +116,7 @@ export function TaskExecutionReportPage() {
   }
 
   if (loading && !report) {
-    return <ExecutionReportSkeleton className={pageClassName} onBack={handleBack} />;
+    return <ExecutionReportSkeleton className={pageClassName} onBack={embedded ? undefined : handleBack} />;
   }
 
   if (!report) {
@@ -118,7 +125,7 @@ export function TaskExecutionReportPage() {
         <div className="execution-report-empty">
           <Empty description={failed ? '分析加载失败' : '暂无分析数据'} />
           <div className="execution-report-empty-actions">
-            <Button icon={<CaretLeft size={14} />} onClick={handleBack}>返回</Button>
+            {!embedded && <Button icon={<CaretLeft size={14} />} onClick={handleBack}>返回</Button>}
             <Button icon={<ArrowClockwise size={14} weight="fill" />} onClick={() => void loadReport()}>重试</Button>
           </div>
         </div>
@@ -144,7 +151,7 @@ export function TaskExecutionReportPage() {
             </div>
           </div>
           <div className="execution-report-actions">
-            <Button size="small" icon={<CaretLeft size={14} />} onClick={handleBack}>返回</Button>
+            {!embedded && <Button size="small" icon={<CaretLeft size={14} />} onClick={handleBack}>返回</Button>}
             <Button size="small" loading={loading} icon={<ArrowClockwise size={14} weight="fill" />} onClick={() => void loadReport()}>刷新</Button>
           </div>
           <div className="execution-report-meta">
@@ -652,13 +659,13 @@ function ModelCallTimelineRow({ call, report }: { call: TaskExecutionReportModel
   );
 }
 
-function ExecutionReportSkeleton({ className, onBack }: { className: string; onBack: () => void }) {
+function ExecutionReportSkeleton({ className, onBack }: { className: string; onBack?: () => void }) {
   return (
     <div className={className}>
       <section className="execution-report-surface execution-report-skeleton">
         <header className="execution-report-head">
           <div className="execution-report-heading"><Skeleton.Avatar active shape="square" /><div><Skeleton.Input active size="small" /><Skeleton.Input active size="small" /></div></div>
-          <Button size="small" icon={<CaretLeft size={14} />} onClick={onBack}>返回</Button>
+          {onBack && <Button size="small" icon={<CaretLeft size={14} />} onClick={onBack}>返回</Button>}
         </header>
         <main className="execution-report-body">
           <section className="execution-report-metrics">{[1, 2, 3, 4, 5].map((item) => <div className="execution-metric" key={item}><Skeleton active paragraph={{ rows: 2 }} title={{ width: '45%' }} /></div>)}</section>

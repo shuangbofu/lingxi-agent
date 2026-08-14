@@ -25,7 +25,7 @@ export function TaskRecommendedScenarios({ task, scenarios, admin = false }: Tas
       sourceTaskId: String(task.id),
       prefill: `基于上一轮「${displayTaskType(task.scenario, task.scenarioName)}」的结论继续处理：${task.userInput}`,
     });
-    navigate(`/?${params.toString()}`);
+    navigate(`/ask?${params.toString()}`);
   }
 
   return (

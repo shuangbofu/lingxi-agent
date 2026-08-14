@@ -57,6 +57,7 @@ public class TaskMetricsService {
         response.setTotalDurationMs(durationMs(start, task.getEndedAt()));
         response.setFirstFeedbackMs(task.getExecutionFirstFeedbackMs());
         response.setCommandDurationMs(safe(task.getExecutionCommandDurationMs()));
+        response.setModelDurationMs(modelDurationMs(task));
         response.setResultProcessingMs(durationMs(task.getEngineCompletedAt(), task.getEndedAt()));
         response.setCompactionCount(safe(task.getExecutionCompactionCount()));
         response.setDuplicateCapabilityCallCount(safe(task.getExecutionDuplicateCapabilityCallCount()));
@@ -70,7 +71,10 @@ public class TaskMetricsService {
      * @return 已固化指标，或根据历史事件补算的指标
      */
     public TaskExecutionMetricsResponse resolvedExecutionMetrics(AgentTaskEntity task) {
-        if (task == null || task.getId() == null || task.getEndedAt() == null || hasStoredExecutionMetrics(task)) {
+        if (task == null || task.getId() == null) {
+            return new TaskExecutionMetricsResponse();
+        }
+        if (task.getEndedAt() != null && hasStoredExecutionMetrics(task)) {
             return storedExecutionMetrics(task);
         }
         return executionMetrics(task);
@@ -189,6 +193,7 @@ public class TaskMetricsService {
         }
         response.setFirstFeedbackMs(durationMs(start, firstFeedbackAt));
         response.setCommandDurationMs(commandDurationMs);
+        response.setModelDurationMs(calculateModelDurationMs(events, end));
         response.setResultProcessingMs(durationMs(task.getEngineCompletedAt(), end));
         response.setCompactionCount(compactionCount);
         response.setDuplicateCapabilityCallCount(duplicateCapabilityCallCount);
@@ -200,7 +205,6 @@ public class TaskMetricsService {
                 && task.getExecutionCompactionCount() != null
                 && task.getExecutionDuplicateCapabilityCallCount() != null;
     }
-
     private String commandInstanceKey(TaskEventEntity event, TaskEventPayload payload) {
         if (payload != null) {
             for (String value : new String[]{payload.getActionInstanceId(), payload.getCallId(), payload.getItemId()}) {
@@ -210,6 +214,62 @@ public class TaskMetricsService {
             }
         }
         return event.getTitle() == null ? "command" : event.getTitle();
+    }
+
+    private String modelInstanceKey(TaskEventEntity event, TaskEventPayload payload) {
+        if (payload != null && payload.getItemId() != null && !payload.getItemId().isBlank()) {
+            return payload.getItemId();
+        }
+        return event.getTitle() == null ? "model" : event.getTitle();
+    }
+
+    /**
+     * 从事件实时配对计算模型调用总耗时（与执行报告的模型请求配对同口径）。
+     *
+     * @param events 任务事件
+     * @param end    任务结束时间；未结束时传入 null
+     * @return 模型调用总耗时毫秒
+     */
+    private long calculateModelDurationMs(List<TaskEventEntity> events, LocalDateTime end) {
+        long modelDurationMs = 0L;
+        Map<String, LocalDateTime> modelStarts = new HashMap<>();
+        for (TaskEventEntity event : events) {
+            TaskEventPayload payload = event.getPayload();
+            if (payload == null || payload.getSemantic() == null) {
+                continue;
+            }
+            if (payload.getSemantic() == RuntimeEventSemantic.MODEL_REQUEST_STARTED) {
+                String modelKey = modelInstanceKey(event, payload);
+                modelStarts.putIfAbsent(modelKey, event.getCreatedAt());
+            } else if (payload.getSemantic() == RuntimeEventSemantic.MODEL_REQUEST_COMPLETED
+                    || payload.getSemantic() == RuntimeEventSemantic.MODEL_REQUEST_FAILED) {
+                String modelKey = modelInstanceKey(event, payload);
+                LocalDateTime modelStart = modelStarts.remove(modelKey);
+                Long modelElapsed = durationMs(modelStart, event.getCreatedAt());
+                modelDurationMs += modelElapsed == null ? 0L : modelElapsed;
+            }
+        }
+        if (end != null) {
+            for (LocalDateTime modelStart : modelStarts.values()) {
+                Long elapsed = durationMs(modelStart, end);
+                modelDurationMs += elapsed == null ? 0L : elapsed;
+            }
+        }
+        return modelDurationMs;
+    }
+
+    /**
+     * 读取单个任务的模型调用总耗时（实时从事件计算，刷新后结果一致）。
+     *
+     * @param task 当前任务
+     * @return 模型调用总耗时毫秒
+     */
+    private long modelDurationMs(AgentTaskEntity task) {
+        if (task == null || task.getId() == null) {
+            return 0L;
+        }
+        List<TaskEventEntity> events = taskEventRepository.findByTaskIdOrderByCreatedAtAsc(task.getId());
+        return calculateModelDurationMs(events, task.getEndedAt());
     }
 
     private String normalizeCommandTarget(TaskEventPayload payload) {

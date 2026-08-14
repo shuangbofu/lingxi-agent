@@ -1357,6 +1357,26 @@ body {
   color: var(--wb-text);
 }
 
+.mode-control-button {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--wb-text-muted);
+  cursor: pointer;
+  padding: 0;
+}
+
+.mode-control-button:hover {
+  background: var(--wb-surface-strong);
+  color: var(--wb-text);
+}
+
 .theme-menu-option {
   display: inline-flex;
   min-width: 104px;
@@ -2373,7 +2393,7 @@ section.rounded-md {
   width: 100%;
   align-items: flex-start;
   gap: 10px;
-  border-radius: 6px;
+  border-radius: var(--lingxi-radius);
   background: var(--wb-surface-subtle);
   padding: 10px 12px;
   color: var(--wb-text-secondary);
