@@ -26,7 +26,7 @@ class TaskArtifactServiceTest {
         LingxiProperties properties = new LingxiProperties();
         properties.getTask().setContentDir(tempDir.resolve("content").toString());
         TaskArtifactService service = new TaskArtifactService(new TaskStoragePathService(properties));
-        String markdown = "[SQL](" + artifact + ":1) [outside](" + outside + ")";
+        String markdown = "[SQL](<" + artifact + ":1>) [outside](" + outside + ")";
 
         String rewritten = service.archiveLinkedFiles(214L, workspace.toString(), markdown);
 

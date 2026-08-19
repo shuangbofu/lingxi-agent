@@ -10,6 +10,29 @@ if ! command -v java >/dev/null 2>&1; then
     exit 1
 fi
 
+# JVM 启动后文件系统编码不可变，必须在启动前使用系统实际安装的 UTF-8 locale。
+if [[ -n "${LINGXI_LOCALE:-}" ]]; then
+    if ! locale -a 2>/dev/null | grep -Fxiq -- "$LINGXI_LOCALE"; then
+        echo "LINGXI_LOCALE 指定的 locale 未安装：$LINGXI_LOCALE" >&2
+        exit 1
+    fi
+    PROCESS_LOCALE="$LINGXI_LOCALE"
+else
+    PROCESS_LOCALE=""
+    for candidate in zh_CN.UTF-8 zh_CN.utf8 C.UTF-8 C.utf8 en_US.UTF-8 en_US.utf8; do
+        if locale -a 2>/dev/null | grep -Fxiq -- "$candidate"; then
+            PROCESS_LOCALE="$candidate"
+            break
+        fi
+    done
+    if [[ -z "$PROCESS_LOCALE" ]]; then
+        echo "系统未安装 UTF-8 locale，无法安全处理中文任务产物文件" >&2
+        exit 1
+    fi
+fi
+export LANG="$PROCESS_LOCALE"
+export LC_ALL="$PROCESS_LOCALE"
+
 if [[ -n "${LINGXI_JAR:-}" ]]; then
     if [[ ! -f "$LINGXI_JAR" ]]; then
         echo "LINGXI_JAR 指定的文件不存在：$LINGXI_JAR" >&2
@@ -28,5 +51,6 @@ else
 fi
 
 echo "启动 Lingxi"
+echo "运行 locale：$PROCESS_LOCALE"
 echo "访问地址：http://localhost:$LISTEN_PORT"
 exec java -jar "$LINGXI_JAR"

@@ -146,7 +146,9 @@ public class TaskArtifactService {
         if (destination.startsWith("http://") || destination.startsWith("https://") || destination.startsWith("/api/")) {
             return null;
         }
-        String pathText = LINE_SUFFIX_PATTERN.matcher(destination).replaceFirst("");
+        // Codex 会用 Markdown 的 <绝对路径:行号> 语法输出可点击文件链接。
+        String normalizedDestination = unwrapMarkdownDestination(destination);
+        String pathText = LINE_SUFFIX_PATTERN.matcher(normalizedDestination).replaceFirst("");
         try {
             Path path = Path.of(pathText);
             Path source = (path.isAbsolute() ? path : workspace.resolve(path)).toAbsolutePath().normalize();
@@ -158,6 +160,20 @@ public class TaskArtifactService {
         } catch (Exception ignored) {
             return null;
         }
+    }
+
+    /**
+     * 去除 Markdown 链接目标的尖括号包裹，使带空格路径和 Codex 文件链接能按真实文件路径解析。
+     *
+     * @param destination Markdown 链接目标
+     * @return 去除首尾尖括号后的链接目标
+     */
+    private String unwrapMarkdownDestination(String destination) {
+        String value = destination == null ? "" : destination.trim();
+        if (value.length() >= 2 && value.charAt(0) == '<' && value.charAt(value.length() - 1) == '>') {
+            return value.substring(1, value.length() - 1).trim();
+        }
+        return value;
     }
 
     private Path artifactRoot(Long taskId) {
