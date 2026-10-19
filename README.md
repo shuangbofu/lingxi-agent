@@ -7,7 +7,7 @@
 <p align="center">Lingxi Agent</p>
 
 <p align="center">
-  <a href="https://lingxi.fusb.top/"><img src="https://img.shields.io/badge/Documentation-Website-625cf6.svg" alt="Documentation" /></a>
+  <a href="https://lingxi.site.fusb.top/"><img src="https://img.shields.io/badge/官网与文档-Website-625cf6.svg" alt="官网与文档" /></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-0f766e.svg" alt="MIT License" /></a>
   <img src="https://img.shields.io/badge/Java-17-f59e0b.svg" alt="Java 17" />
   <img src="https://img.shields.io/badge/Spring%20Boot-3.3-6db33f.svg" alt="Spring Boot 3.3" />
@@ -19,7 +19,7 @@
 > 项目当前处于开发阶段，接口、数据库结构和定义协议仍可能调整，暂未发布稳定版本。
 
 <p align="center">
-  <a href="https://lingxi.fusb.top/"><img src="./docs/assets/lingxi-demo.gif" alt="灵析智能体操作演示" width="100%" /></a>
+  <a href="https://lingxi.site.fusb.top/"><img src="./docs/assets/lingxi-demo.gif" alt="灵析智能体操作演示" width="100%" /></a>
 </p>
 
 ## 核心特点
@@ -54,14 +54,14 @@ flowchart TB
     TOOLS --> RESOURCE["Git / 数据库 / 日志 / Wiki / 外部服务"]
 ```
 
-平台内核负责确定性的任务状态、权限和运行基础设施；场景定义用户入口和交付要求；Skill 与 MCP 提供独立能力；Runtime 负责驱动模型并在授权范围内调用能力。具体架构边界和执行链路请阅读[开发说明](https://lingxi.fusb.top/development.html)。
+平台内核负责确定性的任务状态、权限和运行基础设施；场景定义用户入口和交付要求；Skill 与 MCP 提供独立能力；Runtime 负责驱动模型并在授权范围内调用能力。具体架构边界和执行链路请阅读[开发说明](https://lingxi.site.fusb.top/development.html)。
 
 ## 文档
 
-- [项目网站](https://lingxi.fusb.top/)：项目定位与平台架构
-- [体验部署](https://lingxi.fusb.top/deploy.html)：启动服务、初始化管理员、配置模型与 Runtime
-- [使用说明](https://lingxi.fusb.top/usage.html)：选择场景与情境、发起任务、查看过程与结果
-- [开发说明](https://lingxi.fusb.top/development.html)：开发、校验、打包和安装 Skill 与场景
+- [项目网站](https://lingxi.site.fusb.top/)：项目定位与平台架构
+- [体验部署](https://lingxi.site.fusb.top/deploy.html)：启动服务、初始化管理员、配置模型与 Runtime
+- [使用说明](https://lingxi.site.fusb.top/usage.html)：选择场景与情境、发起任务、查看过程与结果
+- [开发说明](https://lingxi.site.fusb.top/development.html)：开发、校验、打包和安装 Skill 与场景
 
 完整的部署、使用和扩展开发说明统一维护在文档网站。
 
